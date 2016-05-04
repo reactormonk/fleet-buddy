@@ -12,7 +12,7 @@ lazy val server = (project in file("server")).settings(
   resolvers += "scalaz-bintray" at "https://dl.bintray.com/scalaz/releases",
   libraryDependencies ++= Seq(
       "org.webjars" % "jquery" % "1.11.1"
-    , "com.mohiva" %% "play-silhouette" % "4.0.0-BETA4"
+    , "com.mohiva" %% "play-silhouette" % "4.0.0-BETA5"
     , "com.mohiva" %% "play-silhouette-persistence-memory" % "4.0.0-BETA4"
     , "com.iheart" %% "ficus" % "1.2.0"
     , specs2 % Test
