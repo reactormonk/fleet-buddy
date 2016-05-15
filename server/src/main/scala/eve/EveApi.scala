@@ -67,3 +67,11 @@ object EveApi {
     override def apply(link: Link[T])(implicit ev: Decoder[T]): Api[T] = fetch(link.href)
   }
 }
+
+case class VerifyAnswer(
+  CharacterID: Long,
+  CharacterName: String,
+  Scopes: String,
+  TokenType: String,
+  CharacterOwnerHash: String
+)

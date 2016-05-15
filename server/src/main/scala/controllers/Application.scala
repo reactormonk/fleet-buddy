@@ -30,8 +30,12 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: Pr
 
   val db = scala.collection.concurrent.TrieMap[Long, User]()
 
+  def getUser(id: String): Task[Option[User]] = Task.now(db.get(id.toLong))
+  def addUser(user: User): Task[Unit] = Task.now(db += user.id -> user)
+
   val storeToken: OAuth2Token => Task[Response] = { token =>
-    val verified: Task[Err \/ (VerifyAnswer, OAuth2Token)] = EveApi.verify.runReader(clock).runReader(oauth).runReader(client).runState(token).runDisjunction.detach
+    val verified: Task[Err \/ (VerifyAnswer, OAuth2Token)] =
+      EveApi.verify.runReader(clock).runReader(oauth).runReader(client).runState(token).runDisjunction.detach
     verified.flatMap({ _ match {
       case -\/(err) => {
         err.printStackTrace
@@ -39,7 +43,7 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: Pr
       }
       case \/-((answer, token)) => {
         val user = User(answer.CharacterID, answer.CharacterName, token)
-        db += user.id -> user
+        addUser(user)
         Found(Uri(path="/")).map(_.addCookie(oauthauth.setCookie(answer.CharacterID.toString)))
       }
     }})
@@ -51,7 +55,6 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: Pr
   val oauthservice = oauthserviceTask.runDisjunction.detach.run.fold(err => throw new IllegalArgumentException(s"Loading failed: $err"), x => x)
   val oauthauth = OAuthAuth(appKey, clock)
 
-  val resolveUser: String => Task[Option[User]] = { id => Task.now(db.get(id.toLong)) }
   val authed: Kleisli[Task, (User, Request), Response] = Kleisli({ case (user, request) => request match {
     case r @ GET -> Root => Ok(s"Hello $user")
     case r @ GET if List(".js", ".css", ".map").exists(request.pathInfo.endsWith) =>
@@ -61,7 +64,7 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: Pr
   val service: HttpService = HttpService({
     oauthservice.orElse(PartialFunction{ r => {
       oauthauth.maybeAuth(r)
-        .map(resolveUser).sequence.map(_.flatten)
+        .map(getUser).sequence.map(_.flatten)
         .flatMap({_ match {
           case Some(user) => authed local {x: Request => (user, x)} run r
           case None => Found(Uri(path=oauthClientSettings.loginPath))

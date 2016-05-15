@@ -79,11 +79,3 @@ case class Station()
 case class Ship()
 
 case class Capsuleer()
-
-case class VerifyAnswer(
-  CharacterID: Long,
-  CharacterName: String,
-  Scopes: String,
-  TokenType: String,
-  CharacterOwnerHash: String
-)
