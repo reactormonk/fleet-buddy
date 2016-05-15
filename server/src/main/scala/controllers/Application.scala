@@ -54,6 +54,8 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: Pr
   val resolveUser: String => Task[Option[User]] = { id => Task.now(db.get(id.toLong)) }
   val authed: Kleisli[Task, (User, Request), Response] = Kleisli({ case (user, request) => request match {
     case r @ GET -> Root => Ok(s"Hello $user")
+    case r @ GET if List(".js", ".css", ".map").exists(request.pathInfo.endsWith) =>
+      StaticFile.fromResource(request.pathInfo, Some(request)).map(Task.now).getOrElse(NotFound())
   }})
 
   val service: HttpService = HttpService({

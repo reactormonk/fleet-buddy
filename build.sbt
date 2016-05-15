@@ -41,6 +41,7 @@ lazy val server = (project in file("server")).settings(
 ).aggregate(clients.map(projectToRef): _*)
   .dependsOn(sharedJvm)
   .settings(globalSettings: _*)
+  .settings(managedResources in Compile += (fastOptJS in (client, Compile)).value.data)
 
 lazy val client = (project in file("client")).settings(
   scalaVersion := scalaV,
