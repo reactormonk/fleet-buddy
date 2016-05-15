@@ -12,6 +12,9 @@ lazy val globalSettings = Seq(
   )
 )
 
+lazy val http4sVersion = "0.14.0a-SNAPSHOT"
+lazy val circeVersion = "0.4.1"
+
 scalaVersion := scalaV
 
 lazy val server = (project in file("server")).settings(
@@ -19,8 +22,7 @@ lazy val server = (project in file("server")).settings(
   pipelineStages := Seq(gzip),
   resolvers += "scalaz-bintray" at "https://dl.bintray.com/scalaz/releases",
   libraryDependencies ++= Seq(
-      "org.webjars" % "jquery" % "1.11.1"
-    , "oncue.knobs" %% "core" % "3.6.0a"
+      "oncue.knobs" %% "core" % "3.6.0a"
     , "org.scalaz" %% "scalaz-core" % "7.2.2"
     , "org.scalaz" %% "scalaz-concurrent" % "7.2.2"
     , "org.atnos" %% "eff-scalaz" % "1.5"
@@ -29,16 +31,13 @@ lazy val server = (project in file("server")).settings(
     , "ch.qos.logback" %  "logback-classic" % "1.1.7"
     , "org.scalacheck" %% "scalacheck" % "1.13.0" % Test
   ) ++ Seq(
-      "io.circe" %% "circe-core"
-    , "io.circe" %% "circe-generic"
-    , "io.circe" %% "circe-parser"
-    , "io.circe" %% "circe-java8"
-  ).map(_ % "0.4.1") ++ Seq(
+      "io.circe" %% "circe-java8"
+  ).map(_ % circeVersion) ++ Seq(
       "org.http4s" %% "http4s-dsl"
     , "org.http4s" %% "http4s-blaze-server"
     , "org.http4s" %% "http4s-blaze-client"
     , "org.http4s" %% "http4s-circe"
-  ).map(_ % "0.14.0a-SNAPSHOT")
+  ).map(_ % http4sVersion)
 ).aggregate(clients.map(projectToRef): _*)
   .dependsOn(sharedJvm)
   .settings(globalSettings: _*)
@@ -48,7 +47,8 @@ lazy val client = (project in file("client")).settings(
   persistLauncher := true,
   persistLauncher in Test := false,
   libraryDependencies ++= Seq(
-    "org.scala-js" %%% "scalajs-dom" % "0.8.0"
+      "org.scala-js" %%% "scalajs-dom" % "0.8.0"
+    , "org.scala-js" %%% "scalajs-java-time" % "0.1.0"
   )
 ).enablePlugins(ScalaJSPlugin)
   .dependsOn(sharedJs)
@@ -57,6 +57,13 @@ lazy val client = (project in file("client")).settings(
 lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared"))
   .settings(scalaVersion := scalaV)
   .settings(globalSettings: _*)
+  .settings(libraryDependencies ++= Seq(
+      "org.http4s" %% "http4s-core" % http4sVersion
+  ) ++ Seq(
+      "io.circe" %% "circe-core"
+    , "io.circe" %% "circe-parser"
+    , "io.circe" %% "circe-generic"
+  ).map(_ % circeVersion))
 
 lazy val sharedJvm = shared.jvm
 lazy val sharedJs = shared.js
