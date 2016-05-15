@@ -15,12 +15,13 @@ import org.http4s.client.Client
 import org.http4s.server.blaze._
 
 import eveapi._
-import oauth._
+import oauth._, OAuth2._
 import effects._
 import errors._
 import models._
+import utils._
 
-case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int) {
+case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: PrivateKey) {
   val seed = new java.security.SecureRandom().nextLong
   val clock = Clock.systemUTC()
   val oauthState = OAuth2State(seed)
@@ -28,6 +29,7 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int) {
   val client = org.http4s.client.blaze.PooledHttp1Client()
 
   val db = scala.collection.concurrent.TrieMap[Long, User]()
+
   val storeToken: OAuth2Token => Task[Response] = { token =>
     val verified: Task[Err \/ (VerifyAnswer, OAuth2Token)] = EveApi.verify.runReader(clock).runReader(oauth).runReader(client).runState(token).runDisjunction.detach
     verified.flatMap({ _ match {
@@ -38,15 +40,34 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int) {
       case \/-((answer, token)) => {
         val user = User(answer.CharacterID, answer.CharacterName, token)
         db += user.id -> user
-        Ok(s"Welcome $user.name")
+        Found(Uri(path="/")).map(_.addCookie(oauthauth.setCookie(answer.CharacterID.toString)))
       }
     }})
   }
-  val oauthserviceTask: Eff[(Err \/ ?) |: Task |: NoEffect, HttpService] =
+
+  val oauthserviceTask: Eff[(Err \/ ?) |: Task |: NoEffect, ServicePart] =
     OAuth2.oauthService[Reader[Client, ?] |: Reader[OAuth2Settings, ?] |: Reader[OAuth2State, ?] |: Reader[Clock, ?] |: Reader[OAuth2ClientSettings, ?] |: (Err \/ ?) |: Task |: NoEffect](storeToken)
       .runReader(clock).runReader(oauth).runReader(oauthClientSettings).runReader(oauthState).runReader(client)
-  val oauthservice: HttpService = oauthserviceTask.runDisjunction.detach.run.fold(err => throw new IllegalArgumentException(s"Loading failed: $err"), x => x)
-  val builder = BlazeBuilder.mountService(oauthservice)
+  val oauthservice = oauthserviceTask.runDisjunction.detach.run.fold(err => throw new IllegalArgumentException(s"Loading failed: $err"), x => x)
+  val oauthauth = OAuthAuth(appKey, clock)
+
+  val resolveUser: String => Task[Option[User]] = { id => Task.now(db.get(id.toLong)) }
+  val authed: Kleisli[Task, (User, Request), Response] = Kleisli({ case (user, request) => request match {
+    case r @ GET -> Root => Ok(s"Hello $user")
+  }})
+
+  val service: HttpService = HttpService({
+    oauthservice.orElse(PartialFunction{ r => {
+      oauthauth.maybeAuth(r)
+        .map(resolveUser).sequence.map(_.flatten)
+        .flatMap({_ match {
+          case Some(user) => authed local {x: Request => (user, x)} run r
+          case None => Found(Uri(path=oauthClientSettings.loginPath))
+        }})
+    }})
+  })
+
+  val builder = BlazeBuilder.mountService(service)
   val server = builder.bindHttp(port, host)
 }
 
@@ -61,6 +82,7 @@ object Loader extends ServerApp {
       cfg <- config
       clientId = cfg.require[String]("eveonline.clientID")
       clientSecret = cfg.require[String]("eveonline.clientSecret")
+      key = cfg.require[String]("secret")
       host = cfg.lookup[String]("host")
       port = cfg.lookup[Int]("port")
       callback = cfg.lookup[Uri]("eveonline.callback")
@@ -68,6 +90,7 @@ object Loader extends ServerApp {
       val h = host.getOrElse("localhost")
       val p = port.getOrElse(9000)
       val cb = callback.getOrElse(Uri(path="callback", authority = Some(Authority(host=Uri.RegName(h), port=Some(p)))))
+      val secret = PrivateKey(scala.io.Codec.toUTF8(key))
       FleetBuddy(
         OAuth2Settings(
           uri("https://login.eveonline.com/oauth/authorize"),
@@ -78,7 +101,7 @@ object Loader extends ServerApp {
           clientSecret,
           uri("https://login.eveonline.com/oauth/token"),
           Some("fleetRead fleetWrite")
-        ), h, p)
+        ), h, p, secret)
     }
     buddy.map(_.server.run)
   }

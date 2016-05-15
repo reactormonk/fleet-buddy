@@ -27,6 +27,7 @@ lazy val server = (project in file("server")).settings(
     , "commons-codec" % "commons-codec" % "1.10"
     , "org.tpolecat" %% "doobie-core" % "0.3.0-M1"
     , "ch.qos.logback" %  "logback-classic" % "1.1.7"
+    , "org.scalacheck" %% "scalacheck" % "1.13.0" % Test
   ) ++ Seq(
       "io.circe" %% "circe-core"
     , "io.circe" %% "circe-generic"

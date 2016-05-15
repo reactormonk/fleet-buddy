@@ -1,5 +1,6 @@
 package eveapi
 
+import io.circe.Json._
 import java.time._
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
@@ -18,71 +19,69 @@ import errors._
 object EveApi {
   type EveApiS = Reader[OAuth2Settings, ?] |: Reader[Client, ?] |: Reader[Clock, ?] |: (Err \/ ?) |: Task |: State[OAuth2Token, ?] |: NoEffect
   type Api[T] = Eff[EveApiS, T]
-  type R = EveApiS
+  type A = EveApiS
 
   def bearer(request: Request, token: String) = request.putHeaders("Authorization" -> s"Bearer ${token}")
 
-  def refresh()(
-    implicit a: Reader[OAuth2Settings, ?] <= R, f: Task <= R, p: State[OAuth2Token, ?] <= R, client: Reader[Client, ?] <= R, err: Err \/ ? <= R, clock: Reader[Clock, ?] <= R
-  ): Eff[R, Unit] =
+  def refresh: Api[Unit] =
     for {
-      settings <- ask[R, OAuth2Settings]
-      token <- StateEffect.get[R, OAuth2Token]
-      client <- ask[R, Client]
-      clock <- ask[R, Clock]
-      newToken <- task[R, OAuth2Token]({
+      settings <- ask[A, OAuth2Settings]
+      token <- StateEffect.get[A, OAuth2Token]
+      client <- ask[A, Client]
+      clock <- ask[A, Clock]
+      newToken <- task[A, OAuth2Token]({
         client.fetchAs[OAuth2Token](
           POST(settings.refreshUri, UrlForm("grant_type" -> "refresh_token", "refresh_token" -> token.refresh_token))
           .putHeaders(encodeAuth(settings))
         )(jsonOf[OAuth2Token]).map(_.copy(generatedAt = Instant.now(clock)))
       })
-      _ <- StateEffect.put[R, OAuth2Token](token)
+      _ <- StateEffect.put[A, OAuth2Token](token)
     } yield ()
 
-  def executeOAuth(request: Request)(
-    implicit a: Reader[OAuth2Settings, ?] <= R, f: Task <= R, p: State[OAuth2Token, ?] <= R, c: Reader[Client, ?] <= R, err: Err \/ ? <= R, cl: Reader[Clock, ?] <= R
-  ): Eff[R, Response] = {
+  def executeOAuth(request: Request): Api[Response] = {
     for {
-      settings <- ask[R, OAuth2Settings]
-      token <- StateEffect.get[R, OAuth2Token]
-      client <- ask[R, Client]
-      clock <- ask[R, Clock]
+      settings <- ask[A, OAuth2Settings]
+      token <- StateEffect.get[A, OAuth2Token]
+      client <- ask[A, Client]
+      clock <- ask[A, Clock]
       fetch = client.fetch[Response](bearer(request, token.access_token))(x => Task.now(x))
-      _ <- if(token.expired(clock)) refresh()(a, f, p, c, err, cl) else EffMonad[R].point(())
-      resp <- task[R, Response](fetch)
+      _ <- if(token.expired(clock)) refresh else EffMonad[A].point(())
+      resp <- task[A, Response](fetch)
       result <- resp.status match {
-        case Status.Unauthorized => refresh()(a, f, p, c, err, cl) >> task[R, Response](fetch)
-        case _ => task[R, Response](Task.now(resp))
+        case Status.Unauthorized => refresh >> task[A, Response](fetch)
+        case _ => task[A, Response](Task.now(resp))
       }
     } yield result
   }
 
-  def fetchApi[T](request: Request)(implicit ev: Decoder[T]): Api[T] = executeOAuth(request).flatMap(resp => task(resp.as[T](jsonOf[T])))
+  def fetch[T: Decoder](request: Request): Api[T] = executeOAuth(request).flatMap(resp => task(resp.as[T](jsonOf[T])))
+  def fetch[T: Decoder](uri: Uri): Api[T] = fetch[T](Request(method = Method.GET, uri = uri))
 
   def verify: Api[VerifyAnswer] =
-    ask[R, OAuth2Settings].flatMap({ settings =>
-      fetchApi[VerifyAnswer](Request(method = Method.GET, uri = settings.verifyUri))
+    ask[A, OAuth2Settings].flatMap({ settings =>
+      fetch[VerifyAnswer](settings.verifyUri)
     })
+
 }
 
 import EveApi._
 
 case class Link[T](href: Uri) {
   def apply()(implicit ev: Decoder[T]): Api[T] =
-    fetchApi[T](Request(method = Method.GET, uri = href))
+    fetch[T](Request(method = Method.GET, uri = href))
 }
 
-trait Paginated[T] {
-  def toList: Api[List[T]]
+// Even solar systems (8k in count) aren't paginated. Not implemeting for now.
+case class Paginated[T](items: List[T], pageCount: Long, pageCount_str: String, totalCount: Long, totalCount_str: String)
+
+case class Id[T](href: Uri, id: Long, id_str: String, name: String) {
+  def link = Link[T](href)
 }
 
-trait Id[T] {
-  def href: String
-  def link: Link[T] = ???
-  def id: Long
-  def id_str: String
-  def name: String
-}
+/*
+ * A Href pointing to a Uri you can POST to, but doesn't allow for GET.
+ */
+case class Href(href: Uri)
 
 case class Fleet(
   isFreeMove: Boolean,
@@ -116,7 +115,7 @@ case class Wing(
   id: Long,
   id_str: String,
   name: String,
-  squads: Unit,
+  squads: Href,
   squadsList: List[Squad]
 )
 

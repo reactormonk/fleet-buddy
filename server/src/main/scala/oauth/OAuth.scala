@@ -3,6 +3,7 @@ package oauth
 import org.atnos.eff._, org.atnos.eff.syntax.all._, org.atnos.eff.all._
 import effects._
 import TaskEffect._
+import org.http4s.server.middleware.authentication.Authentication
 import scalaz._, Scalaz._
 import scalaz.concurrent._
 import scala.util.Random
@@ -11,12 +12,14 @@ import org.apache.commons.codec.binary.Base64
 import java.net.URLEncoder._
 import org.http4s._, org.http4s.dsl._, org.http4s.client._, org.http4s.circe._, org.http4s.util.{CaseInsensitiveString => CIS}
 import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
-import errors._
 import java.time._
 import java.time.temporal.ChronoUnit._
 
+import errors._
+import utils._
+
 case class OAuth2ClientSettings(
-  loginUri: String
+  loginPath: String
 )
 
 case class OAuth2Settings(
@@ -62,6 +65,7 @@ case class OAuth2State(seed: Long) {
 case class ExchangeToken(code: String, state: String)
 
 object OAuth2 {
+  type ServicePart = PartialFunction[Request, Task[Response]]
   implicit def tuple2header(t: (String, String)) = Header(t._1, t._2)
 
   implicit def oauth2Decoder = Decoder.instance({ c =>
@@ -116,7 +120,7 @@ object OAuth2 {
 
   def oauthService[R](storeToken: OAuth2Token => Task[Response])(
     implicit c: Reader[Client, ?] <= R, r: Reader[OAuth2Settings, ?] <= R, s: Reader[OAuth2State, ?] <= R, t: Task <= R, d: Err \/ ? <= R, clock: Reader[Clock, ?] <= R, sett: Reader[OAuth2ClientSettings, ?] <= R
-  ): Eff[R, HttpService] = {
+  ): Eff[R, ServicePart] = {
     for {
       cli <- ask[R, OAuth2ClientSettings]
       settings <- ask[R, OAuth2Settings]
@@ -124,24 +128,40 @@ object OAuth2 {
       clock <- ask[R, Clock]
       client <- ask[R, Client]
     } yield {
-      HttpService {
-        case r @ GET -> Root / cli.loginUri => EffInterpretation.detach[Task, Response](
-          redirectoToProvider[Reader[OAuth2Settings, ?] |: Reader[OAuth2State, ?] |: Task |: NoEffect]().runReader(settings).runReader(state)
-        )
-        // case r @ GET -> Root / settings.callbackUri.path => {
-        case r @ GET -> Root / "callback" => {
-          val token = for {
-            code <- r.params.get("code")
-            state <- r.params.get("state")
-          } yield ExchangeToken(code, state)
-          Task.now{token.getOrElse{throw new ParseError(s"Couldn't find all parameters in the callback. Params: ${r.params}")}}.flatMap({ token =>
-            exchangeOAuthToken[Reader[OAuth2Settings, ?] |: Reader[OAuth2State, ?] |: Reader[Client, ?] |: Reader[Clock, ?] |: (Err \/ ?) |: Task |: NoEffect](token)
-              .runReader(settings).runReader(client).runReader(clock).runReader(state)
-              .runDisjunction.detach.map(_.fold[OAuth2Token](err => throw err, x => x)).flatMap(storeToken)
-          })
-        }
+      case r @ GET -> Root / cli.loginPath => EffInterpretation.detach[Task, Response](
+        redirectoToProvider[Reader[OAuth2Settings, ?] |: Reader[OAuth2State, ?] |: Task |: NoEffect]().runReader(settings).runReader(state)
+      )
+      // case r @ GET -> Root / settings.callbackUri.path
+      case r @ GET -> Root / "callback" => {
+        val token = for {
+          code <- r.params.get("code")
+          state <- r.params.get("state")
+        } yield ExchangeToken(code, state)
+        Task.now{token.getOrElse{throw new ParseError(s"Couldn't find all parameters in the callback. Params: ${r.params}")}}.flatMap({ token =>
+          exchangeOAuthToken[Reader[OAuth2Settings, ?] |: Reader[OAuth2State, ?] |: Reader[Client, ?] |: Reader[Clock, ?] |: (Err \/ ?) |: Task |: NoEffect](token)
+            .runReader(settings).runReader(client).runReader(clock).runReader(state)
+            .runDisjunction.detach.map(_.fold[OAuth2Token](err => throw err, x => x)).flatMap(storeToken)
+        })
       }
     }
   }
+}
 
+case class OAuthAuth(key: PrivateKey, clock: Clock) {
+  def setCookie[R](message: String): Cookie = {
+    val signed = Crypto.signToken[Reader[PrivateKey, ?] |: Reader[Clock, ?] |: NoEffect](message).runReader(key).runReader(clock).run
+    Cookie("authcookie", signed)
+  }
+
+  def verifyCookie[R](cookies: headers.Cookie)(implicit key: Reader[PrivateKey, ?] <= R, clock: Reader[Clock, ?] <= R): Eff[R, Option[String]] = {
+    cookies.values.list.find(_.name == "authcookie")
+      .map({c => Crypto.validateSignedToken[R](c.content) })
+      .sequence.map(_.flatten)
+  }
+
+  def maybeAuth(request: Request): Option[String] = {
+    headers.Cookie.from(request.headers).flatMap(c =>
+      verifyCookie[Reader[PrivateKey, ?] |: Reader[Clock, ?] |: NoEffect](c).runReader(key).runReader(clock).run
+    )
+  }
 }
