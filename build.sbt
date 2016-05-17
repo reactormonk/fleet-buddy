@@ -5,6 +5,7 @@ lazy val scalaV = "2.11.8"
 lazy val globalSettings = Seq(
     addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.7.1")
   , addCompilerPlugin("com.milessabin" % "si2712fix-plugin_2.11.8" % "1.1.0")
+  , addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
   , resolvers ++= Seq(
       Resolver.sonatypeRepo("releases")
     , Resolver.sonatypeRepo("snapshots")
@@ -31,8 +32,6 @@ lazy val server = (project in file("server")).settings(
     , "ch.qos.logback" %  "logback-classic" % "1.1.7"
     , "org.scalacheck" %% "scalacheck" % "1.13.0" % Test
   ) ++ Seq(
-      "io.circe" %% "circe-java8"
-  ).map(_ % circeVersion) ++ Seq(
       "org.http4s" %% "http4s-dsl"
     , "org.http4s" %% "http4s-blaze-server"
     , "org.http4s" %% "http4s-blaze-client"
@@ -67,6 +66,7 @@ lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared"))
       "io.circe" %% "circe-core"
     , "io.circe" %% "circe-parser"
     , "io.circe" %% "circe-generic"
+    , "io.circe" %% "circe-java8"
   ).map(_ % circeVersion))
 
 lazy val sharedJvm = shared.jvm

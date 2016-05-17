@@ -1,20 +1,18 @@
 package oauth
 
 import org.atnos.eff._, org.atnos.eff.syntax.all._, org.atnos.eff.all._
-import effects._
-import TaskEffect._
-import org.http4s.server.middleware.authentication.Authentication
 import scalaz._, Scalaz._
 import scalaz.concurrent._
 import scala.util.Random
 import scala.io.Codec
 import org.apache.commons.codec.binary.Base64
-import java.net.URLEncoder._
 import org.http4s._, org.http4s.dsl._, org.http4s.client._, org.http4s.circe._, org.http4s.util.{CaseInsensitiveString => CIS}
 import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
 import java.time._
 import java.time.temporal.ChronoUnit._
 
+import effects._
+import TaskEffect._
 import errors._
 import utils._
 

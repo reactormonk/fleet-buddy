@@ -1,5 +1,6 @@
 package eveapi
 
+import java.time.Clock
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 import scalaz.concurrent.{Strategy, Task}
@@ -30,15 +31,20 @@ object ApiStream {
     } yield FleetState(fleet, members.items, wings.items)
 
   def fleetPollSource(fleetUri: Uri, interval: Duration)(implicit ec: ScheduledExecutorService): Process[Api, FleetState] =
-    time.awakeEvery(interval).translate(new NaturalTransformation[Task, Api] {
-      def apply[A](fa: Task[A]): Api[A] = innocentTask(fa)
-    }).flatMap[Api, FleetState]({ _ =>
+    time.awakeEvery(interval).translate(toApiStream).flatMap[Api, FleetState]({ _ =>
       Process.eval(fleetState(fleetUri))
     })
 
-}
+  def toClient(fleetUri: Uri, pollInterval: Duration)(implicit ec: ScheduledExecutorService): Process[Api, ServerToClient] =
+    fleetPollSource(fleetUri, pollInterval)
 
-object WebSocket {
-}
+  val fromClient: Sink[Task, ClientToServer] = Process.constant(x => Task.delay(println(x)))
 
-case class FleetState(fleet: Fleet, members: List[Member], wings: List[Wing])
+  val toApiStream = new NaturalTransformation[Task, Api] {
+    def apply[A](fa: Task[A]): Api[A] = innocentTask(fa)
+  }
+
+  def fromApiStream(settings: OAuth2Settings, client: Client, clock: Clock, state: OAuth2Token) = new NaturalTransformation[Api, Task] {
+    def apply[A](fa: Api[A]): Task[A] = Eff.detach[Task, Err \/ (A, OAuth2Token)](fa.runReader(settings).runReader(client).runReader(clock).runState(state).runDisjunction).map(_.map(_._1).fold(err => throw err, x => x))
+  }
+}

@@ -2,7 +2,7 @@ package eveapi
 
 import java.time._
 
-import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
+import io.circe._, io.circe.generic._, io.circe.parser._, io.circe.syntax._, io.circe.java8.time._
 import org.http4s._
 
 trait Fetcher[T] {
@@ -10,23 +10,25 @@ trait Fetcher[T] {
   def apply(l: Link[T])(implicit ev: Decoder[T]): Monad[T]
 }
 
-case class Link[T](href: Uri) {
+import utils.Decoders._
+
+@JsonCodec case class Link[T](href: Uri) {
   def apply()(implicit ev: Decoder[T], f: Fetcher[T]) = f(this)
 }
 
 // Even solar systems (8k in count) aren't paginated. Not implemeting for now.
-case class Paginated[T](items: List[T], pageCount: Long, pageCount_str: String, totalCount: Long, totalCount_str: String)
+@JsonCodec case class Paginated[T](items: List[T], pageCount: Long, pageCount_str: String, totalCount: Long, totalCount_str: String)
 
-case class Id[T](href: Uri, id: Long, id_str: String, name: String) {
+@JsonCodec case class Id[T](href: Uri, id: Long, id_str: String, name: String) {
   def link = Link[T](href)
 }
 
 /*
  * A Href pointing to a Uri you can POST to, but doesn't allow for GET.
  */
-case class Href(href: Uri)
+@JsonCodec case class Href(href: Uri)
 
-case class Fleet(
+@JsonCodec case class Fleet(
   isFreeMove: Boolean,
   isRegistered: Boolean,
   isVoiceEnabled: Boolean,
@@ -35,7 +37,7 @@ case class Fleet(
   wings: Link[Paginated[Wing]]
 )
 
-case class Member(
+@JsonCodec case class Member(
   boosterID: Int,
   boosterID_str: String,
   boosterName: String,
@@ -54,7 +56,7 @@ case class Member(
   wingID: Long,
   wingID_str: String)
 
-case class Wing(
+@JsonCodec case class Wing(
   id: Long,
   id_str: String,
   name: String,
@@ -62,20 +64,32 @@ case class Wing(
   squadsList: List[Squad]
 )
 
-case class Squad(
+@JsonCodec case class Squad(
   id: Long,
   id_str: String,
   name: String
 )
 
-case class Character(
+@JsonCodec case class Character(
   // capsuleer: Link[Capsuleer], // Not enabled yet
 )
 
-case class SolarSystem()
+@JsonCodec case class SolarSystem()
 
-case class Station()
+@JsonCodec case class Station()
 
-case class Ship()
+@JsonCodec case class Ship()
 
-case class Capsuleer()
+@JsonCodec case class Capsuleer()
+
+// Messages
+
+@JsonCodec sealed trait ServerToClient
+case class FleetState(fleet: Fleet, members: List[Member], wings: List[Wing]) extends ServerToClient
+
+object ServerToClient
+
+@JsonCodec sealed trait ClientToServer
+case class Ping(foo: String) extends ClientToServer
+
+object ClientToServer
