@@ -77,10 +77,7 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: Pr
 }
 
 object Loader extends ServerApp {
-  implicit val configuredUri: Configured[Uri] = Configured(_ match {
-    case CfgText(text) => Uri.fromString(text).toOption
-    case _ => None
-  })
+  implicit val configuredUri = Configured[String].flatMap(s => Configured(_ => Uri.fromString(s).toOption))
   def server(args: List[String]): Task[Server] = {
     val config = knobs.loadImmutable(Required(ClassPathResource("application.conf")) :: Required(ClassPathResource("secrets.conf")) :: Nil)
     val buddy: Task[FleetBuddy] = for {
