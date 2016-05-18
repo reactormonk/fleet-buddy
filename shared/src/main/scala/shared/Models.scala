@@ -3,30 +3,27 @@ package eveapi
 import java.time._
 
 import io.circe._, io.circe.generic._, io.circe.parser._, io.circe.syntax._, io.circe.java8.time._
-import org.http4s._
 
 trait Fetcher[T] {
   type Monad[_]
   def apply(l: Link[T])(implicit ev: Decoder[T]): Monad[T]
 }
 
-import utils.Decoders._
-
-@JsonCodec case class Link[T](href: Uri) {
+@JsonCodec case class Link[T](href: String) {
   def apply()(implicit ev: Decoder[T], f: Fetcher[T]) = f(this)
 }
 
 // Even solar systems (8k in count) aren't paginated. Not implemeting for now.
 @JsonCodec case class Paginated[T](items: List[T], pageCount: Long, pageCount_str: String, totalCount: Long, totalCount_str: String)
 
-@JsonCodec case class Id[T](href: Uri, id: Long, id_str: String, name: String) {
+@JsonCodec case class Id[T](href: String, id: Long, id_str: String, name: String) {
   def link = Link[T](href)
 }
 
 /*
  * A Href pointing to a Uri you can POST to, but doesn't allow for GET.
  */
-@JsonCodec case class Href(href: Uri)
+@JsonCodec case class Href(href: String)
 
 @JsonCodec case class Fleet(
   isFreeMove: Boolean,
@@ -43,7 +40,7 @@ import utils.Decoders._
   boosterName: String,
   character: Character,
   href: Link[Member],
-  joinTime: Instant,
+  joinTime: String,
   roleID: Int,
   roleID_str: String,
   roleName: String,

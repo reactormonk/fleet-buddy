@@ -56,23 +56,28 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: Pr
   val oauthauth = OAuthAuth(appKey, clock)
 
   val ws = WebSocket(oauth, host, port, pollInterval, client, clock)
+  def static(file: String, request: Request) = {
+    StaticFile.fromResource("/" + file, Some(request)).map(Task.now).getOrElse(NotFound())
+  }
 
-  val authed: Kleisli[Task, (User, Request), Response] = Kleisli({ case (user, request) => request match {
-    case r @ GET -> Root => Ok(s"Hello $user")
-    case r @ GET if List(".js", ".css", ".map").exists(request.pathInfo.endsWith) =>
-      StaticFile.fromResource(request.pathInfo, Some(request)).map(Task.now).getOrElse(NotFound())
-    case r @ GET -> Root / "fleet" / fleetId => ws(user, fleetId)
+  val authed: Kleisli[Task, (User, Request), Response] = Kleisli({ case (user, request) => println(request); request match {
+    case GET -> Root => Ok(s"Hello $user")
+    case GET -> Root / path if List(".js", ".css", ".map", ".html").exists(path.endsWith) =>
+      static(path, request)
+    case GET -> Root / "fleet-ws" / fleetId => ws(user, fleetId)
+    case GET -> Root / "fleet" / fleetId => static("fleet.html", request)
+    case _ => NotFound()
   }})
 
   val service: HttpService = HttpService({
-    oauthservice.orElse(PartialFunction{ r => {
+    oauthservice.orElse(PartialFunction{ r: Request => {
       oauthauth.maybeAuth(r)
         .map(getUser).sequence.map(_.flatten)
         .flatMap({_ match {
           case Some(user) => authed local {x: Request => (user, x)} run r
-          case None => Found(Uri(path=oauthClientSettings.loginPath))
+          case None => Found(Uri(path="/" + oauthClientSettings.loginPath))
         }})
-    }})
+    }}).orElse(PartialFunction(_ => NotFound()))
   })
 
   val builder = BlazeBuilder.mountService(service)
@@ -91,7 +96,7 @@ object Loader extends ServerApp {
       host = cfg.lookup[String]("host")
       port = cfg.lookup[Int]("port")
       callback = cfg.require[Uri]("eveonline.callback")
-      pollInterval = cfg.require[Duration]("poll-duration")
+      pollInterval = cfg.require[Duration]("poll-interval")
     } yield {
       val h = host.getOrElse("localhost")
       val p = port.getOrElse(9000)

@@ -31,8 +31,10 @@ lazy val server = (project in file("server")).settings(
     , "org.tpolecat" %% "doobie-core" % "0.3.0-M1"
     , "ch.qos.logback" %  "logback-classic" % "1.1.7"
     , "org.scalacheck" %% "scalacheck" % "1.13.0" % Test
+    , "org.reactormonk" %% "counter" % "1.3.3"
   ) ++ Seq(
-      "org.http4s" %% "http4s-dsl"
+      "org.http4s" %% "http4s-core"
+    , "org.http4s" %% "http4s-dsl"
     , "org.http4s" %% "http4s-blaze-server"
     , "org.http4s" %% "http4s-blaze-client"
     , "org.http4s" %% "http4s-circe"
@@ -52,22 +54,25 @@ lazy val client = (project in file("client")).settings(
   libraryDependencies ++= Seq(
       "org.scala-js" %%% "scalajs-dom" % "0.8.0"
     , "org.scala-js" %%% "scalajs-java-time" % "0.1.0"
+    , "com.lihaoyi" %%% "scalatags" % "0.5.5"
+    , "org.reactormonk" %%% "counter" % "1.3.3"
   )
 ).enablePlugins(ScalaJSPlugin)
   .dependsOn(sharedJs)
   .settings(globalSettings: _*)
 
 lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared"))
-  .settings(scalaVersion := scalaV)
+  .settings(
+    scalaVersion := scalaV,
+    libraryDependencies ++= Seq(
+        "io.circe" %%% "circe-core"
+      , "io.circe" %%% "circe-parser"
+      , "io.circe" %%% "circe-generic"
+      , "io.circe" %%% "circe-java8"
+    ).map(_ % circeVersion)
+  )
   .settings(globalSettings: _*)
-  .settings(libraryDependencies ++= Seq(
-      "org.http4s" %% "http4s-core" % http4sVersion
-  ) ++ Seq(
-      "io.circe" %% "circe-core"
-    , "io.circe" %% "circe-parser"
-    , "io.circe" %% "circe-generic"
-    , "io.circe" %% "circe-java8"
-  ).map(_ % circeVersion))
+
 
 lazy val sharedJvm = shared.jvm
 lazy val sharedJs = shared.js

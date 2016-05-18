@@ -64,7 +64,13 @@ object EveApi {
 
   implicit def fetcher[T] = new Fetcher[T] {
     type Monad[A] = Api[A]
-    override def apply(link: Link[T])(implicit ev: Decoder[T]): Api[T] = fetch(link.href)
+    override def apply(link: Link[T])(implicit ev: Decoder[T]): Api[T] = {
+      val parsed: Err \/ Uri = Uri.fromString(link.href).leftMap(errors.ParseFailure.apply)
+      for {
+        uri <- fromDisjunction[EveApiS, Err, Uri](parsed)
+        result <- fetch[T](uri)
+      } yield result
+    }
   }
 }
 
