@@ -39,7 +39,7 @@ trait Fetcher[T] {
   boosterID_str: String,
   boosterName: String,
   character: Character,
-  href: Link[Member],
+  href: String, // TODO
   joinTime: String,
   roleID: Int,
   roleID_str: String,
@@ -48,7 +48,7 @@ trait Fetcher[T] {
   solarSystem: Id[SolarSystem],
   squadID: Long,
   squadID_str: String,
-  station: Id[Station],
+  station: Option[Id[Station]],
   takesFleetWarp: Boolean,
   wingID: Long,
   wingID_str: String)

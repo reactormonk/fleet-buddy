@@ -38,23 +38,29 @@ object EveApi {
       _ <- StateEffect.put[A, OAuth2Token](token)
     } yield ()
 
-  def executeOAuth(request: Request): Api[Response] = {
+  def executeOAuth[T](request: Request)(decoder: Response => Task[T]): Api[T] = {
     for {
       settings <- ask[A, OAuth2Settings]
       token <- StateEffect.get[A, OAuth2Token]
       client <- ask[A, Client]
       clock <- ask[A, Clock]
-      fetch = client.fetch[Response](bearer(request, token.access_token))(x => Task.now(x))
       _ <- if(token.expired(clock)) refresh else EffMonad[A].point(())
-      resp <- task[A, Response](fetch)
-      result <- resp.status match {
-        case Status.Unauthorized => refresh >> task[A, Response](fetch)
-        case _ => task[A, Response](Task.now(resp))
+      fetch = client.fetch[(Status, String) \/ T](bearer(request, token.access_token))({ response =>
+        response.status match {
+          case Status.Ok => decoder(response).map(\/-.apply)
+          case _ => response.as[String].map(body => -\/((response.status, body)))
+        }
+      })
+      maybeResponse <- task[A, (Status, String) \/ T](fetch)
+      result <- maybeResponse match {
+        case -\/((Status.Unauthorized, _)) => refresh >> task[A, (Status, String) \/ T](fetch).map(_.leftMap[Err]((EveApiStatusFailed.apply _).tupled)).flatMap(fromDisjunction[A, Err, T])
+        case \/-(resp) => task[A, T](Task.now(resp))
+        case -\/((status, body)) => fromDisjunction[A, Err, T](-\/(EveApiStatusFailed(status, body)))
       }
     } yield result
   }
 
-  def fetch[T: Decoder](request: Request): Api[T] = executeOAuth(request).flatMap(resp => task(resp.as[T](jsonOf[T])))
+  def fetch[T: Decoder](request: Request): Api[T] = executeOAuth(request)(_.as[String].map({str => decode[T](str).fold(err => throw JsonParseError(err), x => x) }))
   def fetch[T: Decoder](uri: Uri): Api[T] = fetch[T](Request(method = Method.GET, uri = uri))
 
   def verify: Api[VerifyAnswer] =

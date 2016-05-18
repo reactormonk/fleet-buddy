@@ -28,15 +28,15 @@ object FleetBuddy extends js.JSApp {
       }
     }
     websocket.onclose = { (event: CloseEvent) =>
-      println("Error: $event")
+      println(s"Error: $event")
     }
   }
 
-  def shipImg(id: String, size: Int) = img(s"https://image.eveonline.com/Render/${id}_$size.png")
+  def shipImg(id: String, size: Int) = img(src := s"https://image.eveonline.com/Render/${id}_$size.png")
 
   def wsUri(fleetId: String): String = {
     val wsProtocol = if (dom.document.location.protocol == "https:") "wss" else "ws"
-    (s"$wsProtocol://${dom.document.location.host}fleet-ws/$fleetId")
+    (s"$wsProtocol://${dom.document.location.host}/fleet-ws/$fleetId")
   }
 
   def updateFleetDisplay(state: FleetState) = {
