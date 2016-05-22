@@ -1,6 +1,7 @@
 *.class
 *.log
 secrets.conf
+secrets.scala
 prototype.py
 
 # sbt specific

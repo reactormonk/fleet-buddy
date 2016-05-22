@@ -38,7 +38,7 @@ case class OAuth2Token(
   refresh_token: String,
   generatedAt: Instant = Instant.now()
 ) {
-  def expired(at: Clock) = Instant.now(at).isAfter(generatedAt.plus(expires_in, SECONDS))
+  def expired(at: Clock) = Instant.now(at).isAfter(generatedAt.plus((expires_in * 0.9).toLong, SECONDS))
 }
 
 // TODO convert to a State

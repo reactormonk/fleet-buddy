@@ -11,6 +11,7 @@ import org.http4s._, org.http4s.dsl._, org.http4s.server._
 import org.http4s.Uri.{ Authority, RegName }
 import org.http4s.client.Client
 import org.http4s.server.blaze._
+import doobie.imports._
 
 import eveapi._
 import oauth._, OAuth2._
@@ -20,7 +21,7 @@ import errors._
 import models._
 import utils._
 
-case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: PrivateKey, pollInterval: Duration) {
+case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: PrivateKey, pollInterval: Duration, xa: Transactor[Task]) {
   val seed = new java.security.SecureRandom().nextLong
   val clock = Clock.systemUTC()
   val oauthState = OAuth2State(seed)
@@ -30,8 +31,8 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: Pr
 
   val db = scala.collection.concurrent.TrieMap[Long, User]()
 
-  def getUser(id: String): Task[Option[User]] = Task.now(db.get(id.toLong))
-  def addUser(user: User): Task[Unit] = Task.now(db += user.id -> user)
+  def getUser(id: String): Task[Option[User]] = User.load(id.toLong).transact(xa)
+  def addUser(user: User): Task[Unit] = User.upsert(user).transact(xa)
 
   val storeToken: OAuth2Token => Task[Response] = { token =>
     val verified: Task[Err \/ (VerifyAnswer, OAuth2Token)] =
@@ -43,8 +44,9 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: Pr
       }
       case \/-((answer, token)) => {
         val user = User(answer.CharacterID, answer.CharacterName, token)
-        addUser(user)
-        Found(Uri(path="/")).map(_.addCookie(oauthauth.setCookie(answer.CharacterID.toString)))
+        addUser(user).flatMap({ _ =>
+          Found(Uri(path="/")).map(_.addCookie(oauthauth.setCookie(answer.CharacterID.toString)))
+        })
       }
     }})
   }
@@ -86,9 +88,14 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: Pr
 
 object Loader extends ServerApp {
   implicit val configuredUri = Configured[String].flatMap(s => Configured(_ => Uri.fromString(s).toOption))
+  val xa = DriverManagerTransactor[Task](buildInfo.BuildInfo.flywayDriver, buildInfo.BuildInfo.flywayUrl, buildInfo.BuildInfo.flywayUser, buildInfo.BuildInfo.flywayPassword)
   def server(args: List[String]): Task[Server] = {
+    buddy.map(_.server.run)
+  }
+
+  def buddy: Task[FleetBuddy] = {
     val config = knobs.loadImmutable(Required(ClassPathResource("application.conf")) :: Required(ClassPathResource("secrets.conf")) :: Nil)
-    val buddy: Task[FleetBuddy] = for {
+    for {
       cfg <- config
       clientId = cfg.require[String]("eveonline.clientID")
       clientSecret = cfg.require[String]("eveonline.clientSecret")
@@ -111,8 +118,7 @@ object Loader extends ServerApp {
           clientSecret,
           uri("https://login.eveonline.com/oauth/token"),
           Some("fleetRead fleetWrite")
-        ), h, p, secret, pollInterval)
+        ), h, p, secret, pollInterval, xa)
     }
-    buddy.map(_.server.run)
   }
 }
