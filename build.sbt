@@ -25,7 +25,7 @@ lazy val server = (project in file("server")).settings(
       "oncue.knobs" %% "core" % "3.6.0a"
     , "org.scalaz" %% "scalaz-core" % "7.2.2"
     , "org.scalaz" %% "scalaz-concurrent" % "7.2.2"
-    , "org.atnos" %% "eff-scalaz" % "1.5"
+    , "org.atnos" %% "eff-scalaz" % "1.7.1"
     , "commons-codec" % "commons-codec" % "1.10"
     , "ch.qos.logback" %  "logback-classic" % "1.1.7"
     , "org.scalacheck" %% "scalacheck" % "1.13.0" % Test
@@ -40,7 +40,7 @@ lazy val server = (project in file("server")).settings(
       "org.tpolecat" %% "doobie-core"
     , "org.tpolecat" %% "doobie-contrib-postgresql"
     , "org.tpolecat" %% "doobie-contrib-specs2"
-  ).map(_  % "0.3.0-M1")
+  ).map(_ % "0.3.0-M1")
 ).aggregate(clients.map(projectToRef): _*)
   .settings(
       aggregate in flywayMigrate := false
@@ -57,8 +57,7 @@ lazy val server = (project in file("server")).settings(
   }.value)
   .settings(DB.settings: _*)
   .settings(
-      flywayUrl in Test := flywayUrl.value
-    , flywayUrl in Test ~= {_ + "test"}
+      flywayUrl in Test := { flywayUrl.value + "test" }
     , flywayDriver in Test := flywayDriver.value
     , flywayUser in Test := flywayUser.value
     , flywayPassword in Test := flywayPassword.value
@@ -78,6 +77,7 @@ lazy val client = (project in file("client")).settings(
     , "org.scala-js" %%% "scalajs-java-time" % "0.1.0"
     , "com.lihaoyi" %%% "scalatags" % "0.5.5"
     , "org.reactormonk" %%% "counter" % "1.3.3"
+    , "com.lihaoyi" %%% "scalarx" % "0.3.1"
   )
 ).enablePlugins(ScalaJSPlugin)
   .dependsOn(sharedJs)
@@ -132,14 +132,7 @@ import EveApi._
 
 val xa = controllers.Loader.xa
 import xa.yolo._
-val user =
-  for {
-    userIds <- User.listUsers
-    user <- User.load(userIds.head)
-  } yield user.get
-val transform = (for {
-  b <- controllers.Loader.buddy
-  u <- user.transact(xa)
-} yield ApiStream.fromApiStream(b.oauth, b.client, b.clock, u.token)).unsafePerformSync
-def run[T](e: EveApi.Api[T]): T = transform(e).unsafePerformSync
+def user(name: String): User = User.load(name).transact(xa).unsafePerformSync.get
+def transform(u: User): EveApi.Api ~> Task = controllers.Loader.buddy.map(b => ApiStream.fromApiStream(b.oauth, b.client, b.clock, u.token)).unsafePerformSync
+def r[T](transform: EveApi.Api ~> Task): EveApi.Api[T] => T = {e => transform(e).unsafePerformSync }
 """

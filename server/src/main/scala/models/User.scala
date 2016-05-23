@@ -37,7 +37,14 @@ where users.id = ${user.id}
   def selectQuery(id: Long): Query0[User] =
     sql"select id, name, access_token, token_type, expires_in, refresh_token, generatedAt from users where id = $id"
       .query[User]
+  def selectQuery(name: String): Query0[User] =
+    sql"select id, name, access_token, token_type, expires_in, refresh_token, generatedAt from users where name = $name"
+      .query[User]
   def load(id: Long): ConnectionIO[Option[User]] = selectQuery(id).option
+  /*
+   ** Not indexed
+   */
+  def load(name: String): ConnectionIO[Option[User]] = selectQuery(name).option
   def listQuery: Query0[Long] =
     sql"select id from users".query[Long]
   def listUsers: ConnectionIO[List[Long]] = listQuery.list

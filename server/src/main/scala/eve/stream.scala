@@ -23,12 +23,14 @@ import utils.Decoders._
 import EveApi._
 
 object ApiStream {
+  implicit def effApplicative[R]: Applicative[Eff[R, ?]] = Eff.EffApplicative
+
   def fleetState(fleetUri: Uri): Api[FleetState] =
-    for {
-      fleet <- fetch[Fleet](fleetUri)
-      members <- fleet.members.apply()
-      wings <- fleet.wings.apply()
-    } yield FleetState(fleet, members.items, wings.items)
+    fetch[Fleet](fleetUri).flatMap({ f =>
+      (f.members.apply() |@| f.wings.apply()).tupled.map({ case (m, w) =>
+        FleetState(f, m.items, w.items)
+      })
+    })
 
   def fleetPollSource(fleetUri: Uri, interval: Duration)(implicit ec: ScheduledExecutorService): Process[Api, FleetState] =
     time.awakeEvery(interval).translate(toApiStream).flatMap[Api, FleetState]({ _ =>
