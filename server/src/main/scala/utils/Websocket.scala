@@ -16,12 +16,12 @@ import models._
 import eveapi._
 import oauth._
 
-case class WebSocket(oauth: OAuth2Settings, host: String, port: Int, pollInterval: Duration, client: Client, clock: Clock) {
+case class WebSocket(oauth: OAuth2Settings, host: String, port: Int, pollInterval: Duration, client: Client, clock: Clock, server: EveServer) {
 
-  def fleetUri(id: String) = Uri(scheme = Some(CaseInsensitiveString("https")), authority = Some(Authority(host=Uri.RegName("crest-tq.eveonline.com"))), path = s"/fleets/$id/")
+  def fleetUri(id: Long, server: EveServer) = Uri(scheme = Some(CaseInsensitiveString("https")), authority = Some(Authority(host=server.server)), path = s"/fleets/$id/")
 
-  def apply(user: User, fleetId: String)(implicit s: ScheduledExecutorService) = {
-    val toClient = ApiStream.toClient(fleetUri(fleetId), pollInterval).translate(ApiStream.fromApiStream(oauth, client, clock, user.token)).map(m => Text(m.asJson.noSpaces))
+  def apply(user: User, fleetId: Long)(implicit s: ScheduledExecutorService) = {
+    val toClient = ApiStream.toClient(fleetUri(fleetId, server), pollInterval).translate(ApiStream.fromApiStream(oauth, client, clock, user.token, server)).map(m => Text(m.asJson.noSpaces))
     val fromClient = ApiStream.fromClient
     WS(Exchange(toClient, fromClient.contramap({
       case Text(t, _) => decode[ClientToServer](t).fold(err => throw new IllegalArgumentException(s"Invalid json: $t"), x => x)

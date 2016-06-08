@@ -21,7 +21,7 @@ import errors._
 import models._
 import utils._
 
-case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: PrivateKey, pollInterval: Duration, xa: Transactor[Task]) {
+case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: PrivateKey, pollInterval: Duration, xa: Transactor[Task], eveserver: EveServer) {
   val seed = new java.security.SecureRandom().nextLong
   val clock = Clock.systemUTC()
   val oauthState = OAuth2State(seed)
@@ -29,14 +29,12 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: Pr
   val client = org.http4s.client.blaze.PooledHttp1Client()
   implicit val scheduler = scalaz.stream.DefaultScheduler
 
-  val db = scala.collection.concurrent.TrieMap[Long, User]()
-
   def getUser(id: String): Task[Option[User]] = User.load(id.toLong).transact(xa)
   def addUser(user: User): Task[Unit] = User.upsert(user).transact(xa)
 
   val storeToken: OAuth2Token => Task[Response] = { token =>
     val verified: Task[Err \/ (VerifyAnswer, OAuth2Token)] =
-      EveApi.verify.runReader(clock).runReader(oauth).runReader(client).runState(token).runDisjunction.detach
+      EveApi.verify.runReader(clock).runReader(oauth).runReader(client).runState(token).runReader(eveserver).runDisjunction.detach
     verified.flatMap({ _ match {
       case -\/(err) => {
         err.printStackTrace
@@ -57,18 +55,16 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: Pr
   val oauthservice = oauthserviceTask.runDisjunction.detach.run.fold(err => throw new IllegalArgumentException(s"Loading failed: $err"), x => x)
   val oauthauth = OAuthAuth(appKey, clock)
 
-  val ws = WebSocket(oauth, host, port, pollInterval, client, clock)
+  val ws = WebSocket(oauth, host, port, pollInterval, client, clock, eveserver)
   def static(file: String, request: Request) = {
     StaticFile.fromResource("/" + file, Some(request)).map(Task.now).getOrElse(NotFound())
   }
 
   val authed: Kleisli[Task, (User, Request), Response] = Kleisli({ case (user, request) => println(request); request match {
-    case GET -> Root => Ok(s"Hello $user")
     case GET -> Root / path if List(".js", ".css", ".map", ".html").exists(path.endsWith) =>
       static(path, request)
-    case GET -> Root / "fleet-ws" / fleetId => ws(user, fleetId)
-    case GET -> Root / "fleet" / fleetId => static("fleet.html", request)
-    case _ => NotFound()
+    case GET -> Root / "fleet-ws" / fleetId => ws(user, fleetId.toLong)
+    case _ => static("index.html", request)
   }})
 
   val service: HttpService = HttpService({
@@ -118,7 +114,9 @@ object Loader extends ServerApp {
           clientSecret,
           uri("https://login.eveonline.com/oauth/token"),
           Some("fleetRead fleetWrite")
-        ), h, p, secret, pollInterval, xa)
+        ), h, p, secret, pollInterval, xa,
+        EveServer(Uri.RegName("crest-tq.eveonline.com")) // TODO parameterize this
+      )
     }
   }
 }

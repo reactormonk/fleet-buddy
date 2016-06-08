@@ -34,7 +34,7 @@ case class OAuth2Settings(
 case class OAuth2Token(
   access_token: String,
   token_type: String,
-  expires_in: Long,
+  expires_in: Int,
   refresh_token: String,
   generatedAt: Instant = Instant.now()
 ) {
@@ -70,7 +70,7 @@ object OAuth2 {
     for {
       ac <- (c downField "access_token").as[String]
       tt <- (c downField "token_type").as[String]
-      ei <- (c downField "expires_in").as[Long]
+      ei <- (c downField "expires_in").as[Int]
       rt <- (c downField "refresh_token").as[String]
     } yield OAuth2Token(ac, tt, ei, rt)
   })

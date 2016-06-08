@@ -27,7 +27,7 @@ object ApiStream {
 
   def fleetState(fleetUri: Uri): Api[FleetState] =
     fetch[Fleet](fleetUri).flatMap({ f =>
-      (f.members.apply() |@| f.wings.apply()).tupled.map({ case (m, w) =>
+      (GenHref.members(f) |@| GenHref.wings(f)).tupled.map({ case (m, w) =>
         FleetState(f, m.items, w.items)
       })
     })
@@ -39,6 +39,9 @@ object ApiStream {
 
   def toClient(fleetUri: Uri, pollInterval: Duration)(implicit ec: ScheduledExecutorService): Process[Api, ServerToClient] =
     fleetPollSource(fleetUri, pollInterval)
+      .stateScan(Scalaz.none[FleetState])(now => State({old =>
+        (Some(now), FleetUpdate(now, old.toList.flatMap(o => FleetDiff(o, now))))
+      }))
 
   val fromClient: Sink[Task, ClientToServer] = Process.constant(x => Task.delay(println(x)))
 
@@ -46,7 +49,7 @@ object ApiStream {
     def apply[A](fa: Task[A]): Api[A] = innocentTask(fa)
   }
 
-  def fromApiStream(settings: OAuth2Settings, client: Client, clock: Clock, state: OAuth2Token) = new NaturalTransformation[Api, Task] {
-    def apply[A](fa: Api[A]): Task[A] = Eff.detach[Task, Err \/ (A, OAuth2Token)](fa.runReader(settings).runReader(client).runReader(clock).runState(state).runDisjunction).map(_.map(_._1).fold(err => throw err, x => x))
+  def fromApiStream(settings: OAuth2Settings, client: Client, clock: Clock, state: OAuth2Token, server: EveServer) = new NaturalTransformation[Api, Task] {
+    def apply[A](fa: Api[A]): Task[A] = Eff.detach[Task, Err \/ (A, OAuth2Token)](fa.runReader(settings).runReader(client).runReader(clock).runReader(server).runState(state).runDisjunction).map(_.map(_._1).fold(err => throw err, x => x))
   }
 }

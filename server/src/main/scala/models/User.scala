@@ -14,16 +14,27 @@ case class User(
 )
 
 object User {
+  val charInsertSql = Update[eveapi.Id[eveapi.Character]]("""
+insert into characters
+  (id, name)
+values
+  (?, ?)
+on conflict on constraint characters_pkey do nothing
+""")
+  def charInsertQuery(user: eveapi.Id[eveapi.Character]) = {
+    charInsertSql.run(user) // Ignore name changes.
+  }
+  def charInsert(user: eveapi.Id[eveapi.Character]) = charInsertQuery(user).map(_ => ())
+
   def upsertQuery(user: User): Update0 = {
     val oauth = user.token
     sql"""
 insert into users
-  (id, name, access_token, token_type, expires_in, refresh_token, generatedAt)
+  (id, access_token, token_type, expires_in, refresh_token, generatedAt)
 values
-  (${user.id}, ${user.name}, ${oauth.access_token}, ${oauth.token_type}, ${oauth.expires_in}, ${oauth.refresh_token}, ${oauth.generatedAt})
+  (${user.id}, ${oauth.access_token}, ${oauth.token_type}, ${oauth.expires_in}, ${oauth.refresh_token}, ${oauth.generatedAt})
 on conflict on constraint users_pkey
 do update set
-  name = ${user.name},
   access_token = ${oauth.access_token},
   token_type = ${oauth.token_type},
   expires_in = ${oauth.expires_in},
@@ -32,18 +43,18 @@ do update set
 where users.id = ${user.id}
 """.update
   }
-  def upsert(user: User): ConnectionIO[Unit] = upsertQuery(user).run.map(_ => ())
+  def upsert(user: User): ConnectionIO[Unit] = {
+    val char = eveapi.Id[eveapi.Character](user.id, user.name)
+    (charInsertQuery(char) >> upsertQuery(user).run).map(_ => ())
+  }
 
   def selectQuery(id: Long): Query0[User] =
-    sql"select id, name, access_token, token_type, expires_in, refresh_token, generatedAt from users where id = $id"
+    sql"select users.id, name, access_token, token_type, expires_in, refresh_token, generatedAt from users, characters where characters.id = users.id and users.id = $id"
       .query[User]
   def selectQuery(name: String): Query0[User] =
-    sql"select id, name, access_token, token_type, expires_in, refresh_token, generatedAt from users where name = $name"
+    sql"select users.id, name, access_token, token_type, expires_in, refresh_token, generatedAt from users, characters where characters.id = users.id and characters.name = $name"
       .query[User]
   def load(id: Long): ConnectionIO[Option[User]] = selectQuery(id).option
-  /*
-   ** Not indexed
-   */
   def load(name: String): ConnectionIO[Option[User]] = selectQuery(name).option
   def listQuery: Query0[Long] =
     sql"select id from users".query[Long]

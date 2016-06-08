@@ -30,6 +30,7 @@ lazy val server = (project in file("server")).settings(
     , "ch.qos.logback" %  "logback-classic" % "1.1.7"
     , "org.scalacheck" %% "scalacheck" % "1.13.0" % Test
     , "org.reactormonk" %% "counter" % "1.3.3"
+    , "org.typelevel" %% "shapeless-scalaz" % "0.4"
   ) ++ Seq(
       "org.http4s" %% "http4s-core"
     , "org.http4s" %% "http4s-dsl"
@@ -120,6 +121,7 @@ initialCommands in server := """
 import scalaz._, Scalaz._
 import scalaz.concurrent.Task
 import doobie.imports._
+import org.http4s.Uri._
 
 import eveapi._
 import oauth._, OAuth2._
