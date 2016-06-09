@@ -78,7 +78,9 @@ lazy val client = (project in file("client")).settings(
     , "org.scala-js" %%% "scalajs-java-time" % "0.1.0"
     , "com.lihaoyi" %%% "scalatags" % "0.5.5"
     , "org.reactormonk" %%% "counter" % "1.3.3"
-    , "com.lihaoyi" %%% "scalarx" % "0.3.1"
+    , "be.doeraene" %%% "scalajs-jquery" % "0.9.0"
+    , "me.chrons" %% "diode" % "0.6.0-SNAPSHOT"
+    , "org.webjars" % "Semantic-UI" % "2.1.8"
   )
 ).enablePlugins(ScalaJSPlugin)
   .dependsOn(sharedJs)
