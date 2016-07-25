@@ -1,11 +1,14 @@
 package models
-import oauth._
+import eveapi.oauth._
 import doobie.imports._
 import scalaz._, Scalaz._
 import scalaz.concurrent.Task
 import shapeless._
 import java.time._
 import utils.Doobie._
+
+import eveapi.data.crest._
+import eveapi.compress._
 
 case class User(
   id: Long,
@@ -14,17 +17,17 @@ case class User(
 )
 
 object User {
-  val charInsertSql = Update[eveapi.Id[eveapi.Character]]("""
+  val charInsertSql = Update[CompressedCharacter]("""
 insert into characters
   (id, name)
 values
   (?, ?)
 on conflict on constraint characters_pkey do nothing
 """)
-  def charInsertQuery(user: eveapi.Id[eveapi.Character]) = {
+  def charInsertQuery(user: CompressedCharacter) = {
     charInsertSql.run(user) // Ignore name changes.
   }
-  def charInsert(user: eveapi.Id[eveapi.Character]) = charInsertQuery(user).map(_ => ())
+  def charInsert(user: CompressedCharacter) = charInsertQuery(user).map(_ => ())
 
   def upsertQuery(user: User): Update0 = {
     val oauth = user.token
@@ -44,7 +47,7 @@ where users.id = ${user.id}
 """.update
   }
   def upsert(user: User): ConnectionIO[Unit] = {
-    val char = eveapi.Id[eveapi.Character](user.id, user.name)
+    val char = CompressedStandardIdentifier[Character](user.id, user.name)
     (charInsertQuery(char) >> upsertQuery(user).run).map(_ => ())
   }
 

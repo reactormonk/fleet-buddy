@@ -13,7 +13,7 @@ lazy val globalSettings = Seq(
   )
 )
 
-lazy val circeVersion = "0.4.1"
+val eveapiVersion = "0.1-SNAPSHOT"
 
 scalaVersion := scalaV
 
@@ -36,26 +36,31 @@ lazy val server = (project in file("server")).settings(
     , "org.http4s" %% "http4s-dsl"
     , "org.http4s" %% "http4s-blaze-server"
     , "org.http4s" %% "http4s-blaze-client"
-    , "org.http4s" %% "http4s-circe"
-  ).map(_ % "0.14.0a-SNAPSHOT") ++ Seq(
+  ).map(_ % "0.14.1a") ++ Seq(
       "org.tpolecat" %% "doobie-core"
     , "org.tpolecat" %% "doobie-contrib-postgresql"
     , "org.tpolecat" %% "doobie-contrib-specs2"
-  ).map(_ % "0.3.0-M1")
-).aggregate(clients.map(projectToRef): _*)
+  ).map(_ % "0.3.0-M1") ++ Seq(
+      "eveapi" %% "blazeargonautapi"
+    , "eveapi" %% "compress"
+  ).map(_ % eveapiVersion) ++ Seq(
+    "io.argonaut" %% "argonaut" % "6.1a",
+    "com.github.alexarchambault" %% "argonaut-shapeless_6.1" % "1.1.0-RC2"
+  )
+)//.aggregate(clients.map(projectToRef): _*)
   .settings(
       aggregate in flywayMigrate := false
     , aggregate in flywayClean := false
   )
   .dependsOn(sharedJvm)
   .settings(globalSettings: _*)
-  .settings(managedResources in Compile ++= Def.task {
-    val f1 = (fastOptJS in client in Compile).value.data
-    val f1SourceMap = f1.getParentFile / (f1.getName + ".map")
-    val f2 = (packageScalaJSLauncher in client in Compile).value.data
-    val f3 = (packageJSDependencies in client in Compile).value
-    Seq(f1, f1SourceMap, f2, f3)
-  }.value)
+  // .settings(managedResources in Compile ++= Def.task {
+  //   val f1 = (fastOptJS in client in Compile).value.data
+  //   val f1SourceMap = f1.getParentFile / (f1.getName + ".map")
+  //   val f2 = (packageScalaJSLauncher in client in Compile).value.data
+  //   val f3 = (packageJSDependencies in client in Compile).value
+  //   Seq(f1, f1SourceMap, f2, f3)
+  // }.value)
   .settings(DB.settings: _*)
   .settings(
       flywayUrl in Test := { flywayUrl.value + "test" }
@@ -79,7 +84,7 @@ lazy val client = (project in file("client")).settings(
     , "com.lihaoyi" %%% "scalatags" % "0.5.5"
     , "org.reactormonk" %%% "counter" % "1.3.3"
     , "be.doeraene" %%% "scalajs-jquery" % "0.9.0"
-    , "me.chrons" %% "diode" % "0.6.0-SNAPSHOT"
+    , "io.github.widok" %%% "widok" % "0.3.0-SNAPSHOT"
     , "org.webjars" % "Semantic-UI" % "2.1.8"
   )
 ).enablePlugins(ScalaJSPlugin)
@@ -90,11 +95,8 @@ lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared"))
   .settings(
     scalaVersion := scalaV,
     libraryDependencies ++= Seq(
-        "io.circe" %%% "circe-core"
-      , "io.circe" %%% "circe-parser"
-      , "io.circe" %%% "circe-generic"
-      , "io.circe" %%% "circe-java8"
-    ).map(_ % circeVersion)
+        "eveapi" %% "compress" % eveapiVersion
+    )
   )
   .settings(globalSettings: _*)
 
@@ -104,7 +106,7 @@ lazy val sharedJs = shared.js
 
 onLoad in Global := (Command.process("project server", _: State)) compose (onLoad in Global).value
 
-scalacOptions ++= Seq(
+scalacOptions in ThisBuild ++= Seq(
   "-deprecation",
   "-feature",
   "-unchecked",
@@ -116,7 +118,8 @@ scalacOptions ++= Seq(
   "-Ywarn-numeric-widen",
   "-language:implicitConversions",
   "-language:higherKinds",
-  "-language:existentials"
+  "-language:existentials",
+  "-encoding", "utf8"
 )
 
 initialCommands in server := """

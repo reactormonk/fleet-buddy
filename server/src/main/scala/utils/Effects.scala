@@ -38,21 +38,3 @@ object FutureEffect {
     interpret1[R, U, Fut, A, Throwable \/ A]((a: A) => a.right[Throwable])(recurse)(effects)(m)
   }
 }
-
-object TaskEffect {
-  def task[R, A](a: Task[A])(implicit m: Task <= R, d: Err \/ ? <= R): Eff[R, A] =
-    send[Task, R, Err \/ A](a.attempt.map(_.leftMap(ThrownException.apply)))
-      .flatMap(x => fromDisjunction(x))
-
-  def innocentTask[R, A](a: Task[A])(implicit m: Task <= R): Eff[R, A] =
-    send[Task, R, A](a)
-
-  def runTask[R <: Effects, U <: Effects, A, B](atMost: Duration)(effects: Eff[R, A])(
-    implicit m: Member.Aux[Task, R, U]): Eff[U, A] = {
-    val recurse = new Recurse[Task, U, A] {
-      def apply[X](m: Task[X]): X \/ Eff[U, A] =
-        -\/(m.unsafePerformSyncFor(atMost))
-    }
-    interpret1[R, U, Task, A, A](identity)(recurse)(effects)(m)
-  }
-}

@@ -1,5 +1,4 @@
 package models
-import oauth._
 import doobie.imports._
 import scalaz._, Scalaz._
 import scalaz.concurrent.Task
@@ -9,7 +8,9 @@ import java.time._
 import utils.Doobie._
 import java.time.Instant
 
-import eveapi._
+import eveapi.compress._
+import eveapi.data.crest._
+import shared._
 
 case class CleanMemberState(
   parent: Long,
@@ -26,7 +27,7 @@ case class CleanMemberState(
 )
 
 object FleetHistory {
-  def fleetInsertQuery(s: Fleet, recorded: Instant) = {
+  def fleetInsertQuery(s: CompressedFleet, recorded: Instant) = {
     sql"""
 insert into fleetstate
   (isFreeMove, isRegistered, isVoiceEnabled, motd, recorded)
@@ -71,7 +72,7 @@ insert into squadstatus
 ) values (?, ?, ?, ?)
 """)
 
-  def idTemplate[T](table: String) = Update[eveapi.Id[T]](s"""
+  def idTemplate[T[_]](table: String) = Update[CompressedStandardIdentifier[T]](s"""
 insert into ${table}
 (
   id,
@@ -91,13 +92,13 @@ on conflict do nothing
       _ <- solarSystemSql.updateMany(s.members.map(_.solarSystem))
       _ <- shipSql.updateMany(s.members.map(_.ship))
       id <- fleetInsertQuery(s.fleet, recorded).withUniqueGeneratedKeys[Long]("id")
-      _ <- wingStatusSql.updateMany(s.wings.map(w => (id, w.id, w.name)))
-      _ <- squadStatusSql.updateMany(s.wings.flatMap(w => w.squadsList.map(s => (id, w.id, s.id, s.name))))
+      _ <- wingStatusSql.updateMany(s.wings.map(w => (id, w.wingId, w.name)))
+      _ <- squadStatusSql.updateMany(s.wings.flatMap(w => w.squadsList.map(s => (id, w.wingId, s.squadId, s.name))))
       _ <- memberStatusSql.updateMany(
         s.members.map(m => CleanMemberState(
             id,
             m.boosterID,
-            Instant.parse(m.joinTime),
+            m.joinTime,
             m.roleID,
             m.character.id,
             m.ship.id,
@@ -115,15 +116,15 @@ on conflict do nothing
   }
 
   implicit val maybeStation = implicitly[Composite[Option[Long] :: Option[String] :: HNil]].xmap({ maybeHList =>
-    sequence(maybeHList).map({hlist => Generic[eveapi.Id[Station]].from(hlist) })
-  }, { station: Option[eveapi.Id[Station]] =>
-    station.map({s => Generic[eveapi.Id[Station]].to(s) }) match {
+    sequence(maybeHList).map({hlist => Generic[CompressedStandardIdentifier[Station]].from(hlist) })
+  }, { station: Option[CompressedStandardIdentifier[Station]] =>
+    station.map({s => Generic[CompressedStandardIdentifier[Station]].to(s) }) match {
       case Some(h) => h.map(toOption)
       case None => None :: None :: HNil
     }
   })
 
-  val selectMembers = Query[Long, Member]("""
+  val selectMembers = Query[Long, CompressedMember]("""
 select
   boosterID,
   characters.id, characters.name,
@@ -144,7 +145,7 @@ where
  parentstatus = ?
 """)
 
-  val selectWings = Query[Long, (Long, String, Squad)]("""
+  val selectWings = Query[Long, (Long, String, CompressedSquad)]("""
 select
   wingstatus.id,
   wingstatus.name,
@@ -157,7 +158,7 @@ where
  squadstatus.parentstatus = wingstatus.parentstatus AND squadstatus.wingid = wingstatus.id
 """)
 
-  val selectFleets = Query[(Long, Instant, Instant), (Instant, Long, Fleet)]("""
+  val selectFleets = Query[(Long, Instant, Instant), (Instant, Long, CompressedFleet)]("""
 select
   recorded,
   serial_id,
@@ -177,7 +178,7 @@ and recorded between ? and ?
         members <- selectMembers.to[List](serial)
         wings <- selectWings.to[List](serial).map({
           _.groupBy(_._1).map({ case (k, values) =>
-            Wing(values.head._1, values.head._2, values.map(_._3))
+            CompressedWing(id, values.head._1, values.head._2, values.map(_._3))
           }).toList
         })
       } yield FleetState(fleet, members, wings)

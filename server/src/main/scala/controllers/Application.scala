@@ -1,5 +1,6 @@
 package controllers
 
+import eveapi.errors.EveApiError
 import org.atnos.eff._, org.atnos.eff.syntax.all._, org.atnos.eff.all._
 import java.time.Clock
 import knobs.{ CfgText, Configured }
@@ -13,28 +14,30 @@ import org.http4s.client.Client
 import org.http4s.server.blaze._
 import doobie.imports._
 
-import eveapi._
-import oauth._, OAuth2._
+import utils._
+import oauth._
 import effects._
-import TaskEffect._
 import errors._
 import models._
-import utils._
 
-case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: PrivateKey, pollInterval: Duration, xa: Transactor[Task], eveserver: EveServer) {
+import eveapi.oauth._
+import eveapi.utils.TaskEffect._
+
+case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey: PrivateKey, pollInterval: Duration, xa: Transactor[Task], eveserver: EveServer) {
   val seed = new java.security.SecureRandom().nextLong
   val clock = Clock.systemUTC()
   val oauthState = OAuth2State(seed)
   val oauthClientSettings = OAuth2ClientSettings("login")
   val client = org.http4s.client.blaze.PooledHttp1Client()
   implicit val scheduler = scalaz.stream.DefaultScheduler
+  val oauth = OAuth2(client, settings, oauthState, clock, oauthClientSettings)
 
   def getUser(id: String): Task[Option[User]] = User.load(id.toLong).transact(xa)
   def addUser(user: User): Task[Unit] = User.upsert(user).transact(xa)
 
   val storeToken: OAuth2Token => Task[Response] = { token =>
     val verified: Task[Err \/ (VerifyAnswer, OAuth2Token)] =
-      EveApi.verify.runReader(clock).runReader(oauth).runReader(client).runState(token).runReader(eveserver).runDisjunction.detach
+      OAuth2.verify.runReader(oauth).runState(token).runDisjunction[EveApiError].detach.map(_.leftMap(ApiError.apply))
     verified.flatMap({ _ match {
       case -\/(err) => {
         err.printStackTrace
@@ -49,13 +52,10 @@ case class FleetBuddy(oauth: OAuth2Settings, host: String, port: Int, appKey: Pr
     }})
   }
 
-  val oauthserviceTask: Eff[(Err \/ ?) |: Task |: NoEffect, ServicePart] =
-    OAuth2.oauthService[Reader[Client, ?] |: Reader[OAuth2Settings, ?] |: Reader[OAuth2State, ?] |: Reader[Clock, ?] |: Reader[OAuth2ClientSettings, ?] |: (Err \/ ?) |: Task |: NoEffect](storeToken)
-      .runReader(clock).runReader(oauth).runReader(oauthClientSettings).runReader(oauthState).runReader(client)
-  val oauthservice = oauthserviceTask.runDisjunction.detach.run.fold(err => throw new IllegalArgumentException(s"Loading failed: $err"), x => x)
+  val oauthservice  = oauth.oauthService(storeToken)
   val oauthauth = OAuthAuth(appKey, clock)
 
-  val ws = WebSocket(oauth, host, port, pollInterval, client, clock, eveserver)
+  val ws = WebSocket(pollInterval, oauth, eveserver)
   def static(file: String, request: Request) = {
     StaticFile.fromResource("/" + file, Some(request)).map(Task.now).getOrElse(NotFound())
   }
