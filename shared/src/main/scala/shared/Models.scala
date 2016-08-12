@@ -3,6 +3,10 @@ package shared
 import eveapi.data.crest._
 import eveapi.compress._
 import java.time._
+import elmtype._
+import elmtype.derive._
+import ElmTypeShapeless._
+import shapeless._
 
 trait Id[T] {
   def id: Long
@@ -42,11 +46,5 @@ case class MassLocationChange(ids: List[CompressedCharacter], old: CompressedLoc
 sealed trait ClientToServer
 case class Ping(foo: String) extends ClientToServer
 
-object ClientToServer
-
-object FleetEvent
-
 sealed trait ServerToClient
 case class FleetUpdates(state: FleetState, events: List[FleetEvent]) extends ServerToClient
-
-object ServerToClient

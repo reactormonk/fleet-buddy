@@ -1,6 +1,5 @@
 import sbt.Project.projectToRef
 
-lazy val clients = Seq(client)
 lazy val scalaV = "2.11.8"
 lazy val globalSettings = Seq(
     addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.7.1")
@@ -47,20 +46,13 @@ lazy val server = (project in file("server")).settings(
     "io.argonaut" %% "argonaut" % "6.1a",
     "com.github.alexarchambault" %% "argonaut-shapeless_6.1" % "1.1.0-RC2"
   )
-)//.aggregate(clients.map(projectToRef): _*)
+)
   .settings(
       aggregate in flywayMigrate := false
     , aggregate in flywayClean := false
   )
   .dependsOn(sharedJvm)
   .settings(globalSettings: _*)
-  // .settings(managedResources in Compile ++= Def.task {
-  //   val f1 = (fastOptJS in client in Compile).value.data
-  //   val f1SourceMap = f1.getParentFile / (f1.getName + ".map")
-  //   val f2 = (packageScalaJSLauncher in client in Compile).value.data
-  //   val f3 = (packageJSDependencies in client in Compile).value
-  //   Seq(f1, f1SourceMap, f2, f3)
-  // }.value)
   .settings(DB.settings: _*)
   .settings(
       flywayUrl in Test := { flywayUrl.value + "test" }
@@ -74,28 +66,12 @@ lazy val server = (project in file("server")).settings(
     buildInfoPackage := "buildInfo"
   )
 
-lazy val client = (project in file("client")).settings(
-  scalaVersion := scalaV,
-  persistLauncher := true,
-  persistLauncher in Test := false,
-  libraryDependencies ++= Seq(
-      "org.scala-js" %%% "scalajs-dom" % "0.8.0"
-    , "org.scala-js" %%% "scalajs-java-time" % "0.1.0"
-    , "com.lihaoyi" %%% "scalatags" % "0.5.5"
-    , "org.reactormonk" %%% "counter" % "1.3.3"
-    , "be.doeraene" %%% "scalajs-jquery" % "0.9.0"
-    , "io.github.widok" %%% "widok" % "0.3.0-SNAPSHOT"
-    , "org.webjars" % "Semantic-UI" % "2.1.8"
-  )
-).enablePlugins(ScalaJSPlugin)
-  .dependsOn(sharedJs)
-  .settings(globalSettings: _*)
-
 lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared"))
   .settings(
     scalaVersion := scalaV,
     libraryDependencies ++= Seq(
-        "eveapi" %% "compress" % eveapiVersion
+      "eveapi" %% "compress" % eveapiVersion,
+      "org.reactormonk" %% "elmtypes" % "0.0.1-SNAPSHOT"
     )
   )
   .settings(globalSettings: _*)
@@ -105,6 +81,17 @@ lazy val sharedJvm = shared.jvm
 lazy val sharedJs = shared.js
 
 onLoad in Global := (Command.process("project server", _: State)) compose (onLoad in Global).value
+
+lazy val client = project in file("client")
+
+val compileElm = taskKey[File]("Compile the elm into an index.html")
+
+(compileElm in client) := {
+  val codec = (baseDirectory in client).value / "Codec.elm"
+  (runner in (sharedJvm, run)).value.run("shared.ElmTypes", Attributed.data((fullClasspath in sharedJvm in Compile).value), Seq(codec.toString), streams.value.log)
+  "elm-make Main.elm".!
+  (baseDirectory in client).value / "index.html"
+}
 
 scalacOptions in ThisBuild ++= Seq(
   "-deprecation",
@@ -121,25 +108,3 @@ scalacOptions in ThisBuild ++= Seq(
   "-language:existentials",
   "-encoding", "utf8"
 )
-
-initialCommands in server := """
-import scalaz._, Scalaz._
-import scalaz.concurrent.Task
-import doobie.imports._
-import org.http4s.Uri._
-
-import eveapi._
-import oauth._, OAuth2._
-import effects._
-import TaskEffect._
-import errors._
-import models._
-import utils._
-import EveApi._
-
-val xa = controllers.Loader.xa
-import xa.yolo._
-def user(name: String): User = User.load(name).transact(xa).unsafePerformSync.get
-def transform(u: User): EveApi.Api ~> Task = controllers.Loader.buddy.map(b => ApiStream.fromApiStream(b.oauth, b.client, b.clock, u.token)).unsafePerformSync
-def r[T](transform: EveApi.Api ~> Task): EveApi.Api[T] => T = {e => transform(e).unsafePerformSync }
-"""
