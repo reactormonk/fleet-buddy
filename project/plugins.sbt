@@ -5,7 +5,3 @@ addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.6.1")
 
 addSbtPlugin("org.flywaydb" % "flyway-sbt" % "4.0.1")
 resolvers += "Flyway" at "https://flywaydb.org/repo"
-
-lazy val shared = (project in file("shared")).settings(
-  libraryDependencies += "org.reactormonk" %% "elmtypes" % "0.0.1-SNAPSHOT"
-)
