@@ -21,7 +21,7 @@ main =
         { delta2url = delta2url
         , location2messages = location2messages
         , init = init
-        , update = update
+        , update = (Debug.log "action") >> update
         , view = view
         , subscriptions = subscriptions
         }
@@ -56,23 +56,23 @@ update action model =
     let
         ( newModel, cmd ) =
             case model.view of
-                LandingModel loadingM ->
+                LandingModel landingM ->
                     case action of
                         Switch ac ->
                             switch ac
 
                         FleetViewAction _ ->
-                            ( LandingModel loadingM, Cmd.none )
+                            ( LandingModel landingM, Cmd.none )
 
                         LandingAction ac ->
-                            case Landing.update ac loadingM of
+                            case Landing.update ac landingM of
                                 ( m, Just landingAction ) ->
                                     case landingAction of
                                         Landing.SwitchToFleet id ->
                                             ( FleetViewModel (FleetView.init { id = id, host = model.host, protocol = model.protocol }), Cmd.none )
 
                                 ( m, Nothing ) ->
-                                    ( LandingModel loadingM, Cmd.none )
+                                    ( LandingModel m, Cmd.none )
 
                 FleetViewModel model ->
                     case action of
@@ -126,7 +126,7 @@ type Action
 
 location2messages : Location -> List Action
 location2messages location =
-    [ (location2page location) |> mapBoth (\_ -> UrlNotFound) identity >> Switch ]
+    [ (location2page location) |> mapBoth (\_ -> UrlNotFound) identity >> (Debug.log "switching") >> Switch ]
 
 
 location2page : Location -> Result String SwitchAction

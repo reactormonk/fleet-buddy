@@ -13,8 +13,10 @@ import Json.Encode exposing (encode)
 import Result.Extra exposing (mapBoth)
 import RouteUrl.Builder exposing (..)
 
+
 type alias FleetInit =
-    {id: String, host: String, protocol: String }
+    { id : String, host : String, protocol : String }
+
 
 type alias FleetSocket =
     { url : String }
@@ -120,7 +122,7 @@ view model =
                         |> List.map (\m -> ( m.ship.id, m.ship.name ))
                         |> count
                         |> Dict.toList
-                        |> List.map (\ ( ( id, name ), cnt ) -> renderShip { id = id, name = name } cnt)
+                        |> List.map (\( ( id, name ), cnt ) -> renderShip { id = id, name = name } cnt)
             in
                 div []
                     [ div [ classList [ ( "ui", True ), ( "link", True ), ( "cards", True ) ] ] countedShips ]
@@ -139,21 +141,24 @@ fleetSocket : FleetInit -> FleetSocket
 fleetSocket struct =
     let
         proto =
-            if struct.protocol == "http" then
+            if struct.protocol == "http:" then
                 "ws"
             else
                 "wss"
     in
-        FleetSocket <| proto
-            ++ "://"
-            ++ struct.host
-            ++ "/fleet-ws/"
-            ++ struct.id
+        FleetSocket <|
+            proto
+                ++ "://"
+                ++ struct.host
+                ++ "/fleet-ws/"
+                ++ struct.id
 
 
 subscriptions : Model -> Sub Action
 subscriptions model =
     WebSocket.listen model.socket.url (decodeString decodeServerToClient >> mapBoth InvalidMessage FromServer)
 
-urlBuilder: String -> Builder
-urlBuilder id = (builder |> newEntry |> appendToPath [ "fleet", id ])
+
+urlBuilder : String -> Builder
+urlBuilder id =
+    (builder |> newEntry |> appendToPath [ "fleet", id ])
