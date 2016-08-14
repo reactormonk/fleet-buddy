@@ -47,13 +47,13 @@ view model =
         [ div
             [ class [ Style.Form ] ]
             [ Html.form
-                [ classList [ ( "form", True ), ( "large", True ), ( "ui", True ) ] ]
+                [ classList [ ( "form", True ), ( "large", True ), ( "ui", True ) ], onSubmit FleetUrlSubmit ]
                 [ div
                     [ classList [ ( "field", True ), ( "stacked", True ), ( "segment", True ) ] ]
                     [ label [] [ Html.text "Fleet URL" ]
-                    , input [ type' "text", placeholder "From fleet dropdown", onInput EnteredFleetUrl ] []
+                    , input [ type' "text", placeholder "https://crest-tq.eveonline.com/fleets/00000000000/", onInput EnteredFleetUrl, style [ ( "width", "27em" ) ] ] []
                     ]
-                , button [ classList [ ( "ui", True ), ( "button", True ) ], type' "submit", viewValidation model, onSubmit FleetUrlSubmit ] [ Html.text "Go!" ]
+                , button [ classList [ ( "ui", True ), ( "button", True ) ], type' "submit", viewValidation model ] [ Html.text "Go!" ]
                 ]
             ]
         ]
