@@ -69,6 +69,7 @@ lazy val server = (project in file("server")).settings(
     , (compileCss in client).value
     , file("client/semantic/dist/semantic.min.css")
     , file("client/semantic/dist/semantic.min.js")
+    , file("client/index.html")
     )
 )
 

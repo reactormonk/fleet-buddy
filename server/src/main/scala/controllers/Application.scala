@@ -64,7 +64,7 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
     case GET -> Root / path if List(".js", ".css", ".map", ".html").exists(path.endsWith) =>
       static(path, request)
     case GET -> Root / "fleet-ws" / fleetId => ws(user, fleetId.toLong)
-    case GET -> Root => static("index.html", request)
+    case GET -> _ => static("index.html", request)
   }})
 
   val favicon: PartialFunction[Request, Task[Response]] = { case request @ GET -> Root / "favicon.ico" => static("favicon.ico", request)}
