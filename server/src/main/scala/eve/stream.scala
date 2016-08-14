@@ -49,7 +49,7 @@ object ApiStream {
     })
 
   def fleetPollSource(fleetUri: Uri, interval: Duration, eval: Lift.Link ~> Api)(implicit ec: ScheduledExecutorService): Process[Api, FleetState] =
-    time.awakeEvery(interval).translate(toApiStream).flatMap[Api, FleetState]({ _ =>
+    (Process.emit(()) ++ time.awakeEvery(interval)).translate(toApiStream).flatMap[Api, FleetState]({ _ =>
       Process.eval(fleetState(fleetUri).foldMap(eval))
     })
 

@@ -52,7 +52,7 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
     }})
   }
 
-  val oauthservice  = oauth.oauthService(storeToken)
+  val oauthservice = oauth.oauthService(storeToken)
   val oauthauth = OAuthAuth(appKey, clock)
 
   val ws = WebSocket(pollInterval, oauth, eveserver)
@@ -64,11 +64,13 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
     case GET -> Root / path if List(".js", ".css", ".map", ".html").exists(path.endsWith) =>
       static(path, request)
     case GET -> Root / "fleet-ws" / fleetId => ws(user, fleetId.toLong)
-    case _ => static("index.html", request)
+    case GET -> Root => static("index.html", request)
   }})
 
+  val favicon: PartialFunction[Request, Task[Response]] = { case request @ GET -> Root / "favicon.ico" => static("favicon.ico", request)}
+
   val service: HttpService = HttpService({
-    oauthservice.orElse(PartialFunction{ r: Request => {
+    favicon.orElse(oauthservice).orElse(PartialFunction{ r: Request => {
       oauthauth.maybeAuth(r)
         .map(getUser).sequence.map(_.flatten)
         .flatMap({_ match {

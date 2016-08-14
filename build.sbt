@@ -35,7 +35,7 @@ lazy val server = (project in file("server")).settings(
     , "org.http4s" %% "http4s-dsl"
     , "org.http4s" %% "http4s-blaze-server"
     , "org.http4s" %% "http4s-blaze-client"
-  ).map(_ % "0.14.1a") ++ Seq(
+  ).map(_ % "0.14.2a") ++ Seq(
       "org.tpolecat" %% "doobie-core"
     , "org.tpolecat" %% "doobie-contrib-postgresql"
     , "org.tpolecat" %% "doobie-contrib-specs2"
@@ -47,31 +47,32 @@ lazy val server = (project in file("server")).settings(
     "com.github.alexarchambault" %% "argonaut-shapeless_6.1" % "1.1.0-RC2"
   )
 )
-  .settings(
-      aggregate in flywayMigrate := false
-    , aggregate in flywayClean := false
-  )
   .dependsOn(sharedJvm)
   .settings(globalSettings: _*)
   .settings(DB.settings: _*)
   .settings(
-      flywayUrl in Test := { flywayUrl.value + "test" }
-    , flywayDriver in Test := flywayDriver.value
-    , flywayUser in Test := flywayUser.value
-    , flywayPassword in Test := flywayPassword.value
-  )
+    aggregate in flywayMigrate := false
+  , aggregate in flywayClean := false
+  , flywayUrl in Test := { flywayUrl.value + "test" }
+  , flywayDriver in Test := flywayDriver.value
+  , flywayUser in Test := flywayUser.value
+  , flywayPassword in Test := flywayPassword.value
+)
   .enablePlugins(BuildInfoPlugin)
   .settings(
-    buildInfoKeys := Seq[BuildInfoKey](flywayUrl, flywayDriver, flywayUser, flywayPassword),
-    buildInfoPackage := "buildInfo"
-  )
+    buildInfoKeys := Seq[BuildInfoKey](flywayUrl, flywayDriver, flywayUser, flywayPassword)
+  , buildInfoPackage := "buildInfo"
+)
+  .settings(
+    (managedResources in Compile) ++= Seq((compileElm in client).value, file("client/semantic/dist/semantic.min.css"), file("client/semantic/dist/semantic.min.js"))
+)
 
 lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared"))
   .settings(
     scalaVersion := scalaV,
     libraryDependencies ++= Seq(
       "eveapi" %% "compress" % eveapiVersion,
-      "org.reactormonk" %% "elmtypes" % "0.0.1-SNAPSHOT"
+      "org.reactormonk" %% "elmtypes" % "0.1"
     )
   )
   .settings(globalSettings: _*)
@@ -89,8 +90,8 @@ val compileElm = taskKey[File]("Compile the elm into an index.html")
 (compileElm in client) := {
   val codec = (baseDirectory in client).value / "Codec.elm"
   (runner in (sharedJvm, run)).value.run("ElmTypes", Attributed.data((fullClasspath in sharedJvm in Compile).value), Seq(codec.toString), streams.value.log)
-  if (Process("elm-make Main.elm", file("client")).! != 0) {throw new Exception("elm build failed!")}
-  (baseDirectory in client).value / "index.html"
+  if (Process("elm-make Main.elm --output=elm.js", file("client")).! != 0) {throw new Exception("elm build failed!")}
+  (baseDirectory in client).value / "elm.js"
 }
 
 scalacOptions in ThisBuild ++= Seq(
