@@ -86,11 +86,27 @@ count list =
         list
 
 
-imageTemplate : Template.Template { b | id : String }
-imageTemplate =
-    template "https://image.eveonline.com/Render/"
+list : a -> List a
+list elem =
+    [ elem ]
+
+
+shipImageTemplate : Template.Template { b | id : String }
+shipImageTemplate type' =
+    template "https://image.eveonline.com/"
+        |> withString "Render"
+        |> withString "/"
         |> withValue .id
         |> withString "_512.png"
+
+
+characterImageTemplate : Template.Template { b | id : String }
+characterImageTemplate type' =
+    template "https://image.eveonline.com/"
+        |> withString "Character"
+        |> withString "/"
+        |> withValue .id
+        |> withString "_512.jpg"
 
 
 shipTextTemplate : Template.Template { b | count : String, name : String }
@@ -101,31 +117,120 @@ shipTextTemplate =
         |> withValue .name
 
 
-renderShip : CompressedStandardIdentifier_Long_String -> Int -> Html Action
+renderShip : { a | id : String, name : String } -> Int -> Html Action
 renderShip ship count =
     div [ classList [ ( "ui", True ), ( "card", True ) ] ]
         [ div [ class "image" ]
-            [ img [ src (render imageTemplate ship) ] []
+            [ img [ src (render shipImageTemplate ship) ] []
             , div [ class "content" ]
                 [ div [ class "header" ] [ text (render shipTextTemplate { name = ship.name, count = toString count }) ] ]
             ]
         ]
 
 
+renderEvent' : Maybe { a | id : String, name : String } -> List (Html Action) -> List (Html Action)
+renderEvent' character summary =
+    case character of
+        Just char ->
+            [ div [ class "label" ] [ img [ src (render characterImageTemplate char) ] [] ]
+            , div [ class "content" ] [ div [ class "summary" ] <| [ text char.name ] ++ summary ]
+            ]
+
+        Nothing ->
+            [ div [ class "content" ] [ div [ class "summary" ] summary ] ]
+
+
+renderChange : Bool -> String
+renderChange b =
+    if b then
+        "on"
+    else
+        "off"
+
+
+renderLocation : CompressedLocation -> Html Action
+renderLocation location =
+    case location.solarSystem of
+        Nothing ->
+            text "logged out"
+
+        Just solarSystem ->
+            text <|
+                "in "
+                    ++ solarSystem.name
+                    ++ (case location.station of
+                            Nothing ->
+                                ""
+
+                            Just station ->
+                                " docked in " ++ station.name
+                       )
+
+
+renderEvent : FleetEvent -> Html Action
+renderEvent event =
+    let
+        inner =
+            case event of
+                FleetEventFleetWarpChange change ->
+                    renderEvent' (Just change.id) <| list <| text <| " switched his fleet warp " ++ (renderChange change.now)
+
+                FleetEventFreeMoveChange change ->
+                    renderEvent' Nothing <| list <| text <| "Free move is now " ++ (renderChange change.now)
+
+                FleetEventLocationChange change ->
+                    renderEvent' (Just change.id) [ (text " went from "), (renderLocation change.old), (text " to "), (renderLocation change.now) ]
+
+                FleetEventMassLocationChange change ->
+                    renderEvent' Nothing [ (text "A whole lot of people went from "), (renderLocation change.old), (text " to "), (renderLocation change.now) ]
+
+                FleetEventMemberJoin join ->
+                    renderEvent' (Just join.id) <| list <| text <| " joined your fleet."
+
+                FleetEventMemberPart part ->
+                    renderEvent' (Just part.id) <| list <| text <| " left your fleet."
+
+                FleetEventMotdChange change ->
+                    renderEvent' Nothing <| list <| text <| "The motd is now " ++ change.now
+
+                FleetEventRegisteredChange change ->
+                    renderEvent' Nothing <| list <| text <| "Fleet registration is now " ++ (renderChange change.now)
+
+                FleetEventShipChange change ->
+                    renderEvent' (Just change.id) <| list <| text <| " switched from a " ++ change.old.name ++ " to a " ++ change.now.name
+
+                FleetEventSquadMove move ->
+                    renderEvent' (Just move.id) <| list <| text <| " moved from Squad " ++ move.old.name ++ " to Squad " ++ move.now.name
+
+                FleetEventWingMove move ->
+                    renderEvent' (Just move.id) <| list <| text <| " moved from Wing " ++ move.old.name ++ " to Wing " ++ move.now.name
+    in
+        div [ class "event" ] inner
+
+
 view : Model -> Html Action
 view model =
     case model.data of
-        Just current ->
+        Just data ->
             let
                 countedShips =
-                    current.state.members
+                    data.state.members
                         |> List.map (\m -> ( m.ship.id, m.ship.name ))
                         |> count
                         |> Dict.toList
+                        |> List.sortBy snd
+                        |> List.reverse
                         |> List.map (\( ( id, name ), cnt ) -> renderShip { id = id, name = name } cnt)
             in
-                div []
-                    [ div [ classList [ ( "ui", True ), ( "link", True ), ( "cards", True ) ] ] countedShips ]
+                div [ classList [ ( "ui", True ), ( "two", True ), ( "column", True ), ( "grid", True ) ] ]
+                    [ div [ classList [ ( "ten", True ), ( "wide", True ), ( "column", True ) ] ]
+                        [ div [ classList [ ( "ui", True ), ( "cards", True ) ] ] countedShips
+                        ]
+                    , div [ classList [ ( "five", True ), ( "wide", True ), ( "column", True ) ] ]
+                        [ div [ classList [ ( "ui", True ), ( "feed", True ) ] ] <|
+                            List.map renderEvent data.events
+                        ]
+                    ]
 
         Nothing ->
             div []
