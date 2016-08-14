@@ -12,6 +12,7 @@ import RouteUrl.Builder exposing (..)
 import UrlParser exposing (..)
 import Tuple2 exposing (mapEach, mapFst, mapSnd)
 import Html.App as App
+import String
 
 
 main : Program Flags
@@ -137,7 +138,7 @@ location2page location =
             ]
         )
     <|
-        location.href
+        (String.dropLeft 1 location.pathname)
 
 
 delta2url : Model -> Model -> Maybe UrlChange

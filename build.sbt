@@ -64,7 +64,12 @@ lazy val server = (project in file("server")).settings(
   , buildInfoPackage := "buildInfo"
 )
   .settings(
-    (managedResources in Compile) ++= Seq((compileElm in client).value, file("client/semantic/dist/semantic.min.css"), file("client/semantic/dist/semantic.min.js"))
+    (managedResources in Compile) ++= Seq(
+      (compileElm in client).value
+    , (compileCss in client).value
+    , file("client/semantic/dist/semantic.min.css")
+    , file("client/semantic/dist/semantic.min.js")
+    )
 )
 
 lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared"))
@@ -85,13 +90,20 @@ onLoad in Global := (Command.process("project server", _: State)) compose (onLoa
 
 lazy val client = project in file("client")
 
-val compileElm = taskKey[File]("Compile the elm into an index.html")
+val compileElm = taskKey[File]("Compile the elm into a elm.css")
 
 (compileElm in client) := {
   val codec = (baseDirectory in client).value / "Codec.elm"
   (runner in (sharedJvm, run)).value.run("ElmTypes", Attributed.data((fullClasspath in sharedJvm in Compile).value), Seq(codec.toString), streams.value.log)
   if (Process("elm-make Main.elm --output=elm.js", file("client")).! != 0) {throw new Exception("elm build failed!")}
   (baseDirectory in client).value / "elm.js"
+}
+
+val compileCss = taskKey[File]("Compile the elm into an styles.css")
+
+(compileCss in client) := {
+  if (Process("node_modules/.bin/elm-css Stylesheets.elm", file("client")).! != 0) {throw new Exception("elm build failed!")}
+  (baseDirectory in client).value / "styles.css"
 }
 
 scalacOptions in ThisBuild ++= Seq(

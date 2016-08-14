@@ -13,3 +13,10 @@ npm install semantic-ui --save
 cd semantic
 gulp build
 ```
+
+# css setup
+
+```bash
+cd client
+npm install elm-css
+```
