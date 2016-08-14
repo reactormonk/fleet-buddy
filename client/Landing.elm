@@ -3,7 +3,7 @@ module Landing exposing (..)
 import List
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onInput, onClick)
+import Html.Events exposing (onInput, onSubmit)
 import Regex exposing (..)
 import Style exposing (..)
 import Html.CssHelpers
@@ -53,7 +53,7 @@ view model =
                     [ label [] [ Html.text "Fleet URL" ]
                     , input [ type' "text", placeholder "From fleet dropdown", onInput EnteredFleetUrl ] []
                     ]
-                , button [ classList [ ( "ui", True ), ( "button", True ) ], type' "submit", viewValidation model, onClick FleetUrlSubmit ] [ Html.text "Go!" ]
+                , button [ classList [ ( "ui", True ), ( "button", True ) ], type' "submit", viewValidation model, onSubmit FleetUrlSubmit ] [ Html.text "Go!" ]
                 ]
             ]
         ]

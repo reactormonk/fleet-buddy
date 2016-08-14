@@ -143,7 +143,9 @@ location2page location =
 
 delta2url : Model -> Model -> Maybe UrlChange
 delta2url previous current =
-    Maybe.map toUrlChange <|
+    (Debug.log "url change")
+        << Maybe.map toUrlChange
+    <|
         delta2builder previous.view current.view
 
 
