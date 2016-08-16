@@ -126,9 +126,10 @@ on conflict do nothing
 
   val selectMembers = Query[Long, CompressedMember]("""
 select
+  parentstatus,
   boosterID,
   characters.id, characters.name,
-  to_char(joinTime at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+  joinTime,
   roleID,
   ships.id, ships.name,
   solarsystems.id, solarsystems.name,
@@ -149,6 +150,8 @@ where
 select
   wingstatus.id,
   wingstatus.name,
+  wingstatus.parentstatus,
+  wingstatus.id,
   squadstatus.id,
   squadstatus.name
 from
