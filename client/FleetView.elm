@@ -92,19 +92,17 @@ list elem =
 
 
 shipImageTemplate : Template.Template { b | id : String }
-shipImageTemplate type' =
+shipImageTemplate =
     template "https://image.eveonline.com/"
-        |> withString "Render"
-        |> withString "/"
+        |> withString "Render/"
         |> withValue .id
         |> withString "_512.png"
 
 
 characterImageTemplate : Template.Template { b | id : String }
-characterImageTemplate type' =
+characterImageTemplate =
     template "https://image.eveonline.com/"
-        |> withString "Character"
-        |> withString "/"
+        |> withString "Character/"
         |> withValue .id
         |> withString "_512.jpg"
 
@@ -148,23 +146,71 @@ renderChange b =
         "off"
 
 
-renderLocation : CompressedLocation -> Html Action
+renderStation : CompressedStandardIdentifier_Long_String -> CompressedStandardIdentifier_Long_String -> List (Html Action)
+renderStation station solarSystem =
+    [ text <| station.name ++ " in " ++ solarSystem.name ]
+
+
+renderSolarSystem : CompressedStandardIdentifier_Long_String -> List (Html Action)
+renderSolarSystem solarSystem =
+    [ text solarSystem.name ]
+
+
+renderLocation : CompressedLocation -> List (Html Action)
 renderLocation location =
-    case location.solarSystem of
-        Nothing ->
-            text "logged out"
+    case ( location.solarSystem, location.station ) of
+        ( Just solarSystem, Nothing ) ->
+            [ text solarSystem.name ]
 
-        Just solarSystem ->
-            text <|
-                "in "
-                    ++ solarSystem.name
-                    ++ (case location.station of
-                            Nothing ->
-                                ""
+        ( Just solarSystem, Just station ) ->
+            [ text <| station.name ++ ", " ++ solarSystem.name ]
 
-                            Just station ->
-                                " docked in " ++ station.name
-                       )
+        ( Nothing, _ ) ->
+            [ text "logged out" ]
+
+
+renderLocationChange : { a | old : CompressedLocation, now : CompressedLocation } -> List (Html Action)
+renderLocationChange change =
+    case ( change.old.solarSystem, change.old.station, change.now.solarSystem, change.now.station ) of
+        ( Nothing, Nothing, solarSystem, station ) ->
+            [ text " logged in to " ] ++ renderLocation { solarSystem = solarSystem, station = station }
+
+        ( solarSystem, station, Nothing, Nothing ) ->
+            [ text " logged out from " ] ++ renderLocation { solarSystem = solarSystem, station = station }
+
+        ( Just old, Nothing, Just now, Nothing ) ->
+            [ text " jumped from " ] ++ renderSolarSystem old ++ [ text " to " ] ++ renderSolarSystem now
+
+        ( Just old, Just oldStation, Just now, Nothing ) ->
+            let
+                to =
+                    if old == now then
+                        []
+                    else
+                        [ text " and jumped into " ] ++ renderSolarSystem now
+            in
+                [ text " undocked from " ]
+                    ++ renderStation oldStation old
+                    ++ to
+
+        ( Just old, Just oldStation, Just now, Just nowStation ) ->
+            [ text " switched stations from " ] ++ renderStation oldStation old ++ [ text " to " ] ++ renderStation nowStation now
+
+        ( Just old, Nothing, Just now, Just nowStation ) ->
+            let
+                from =
+                    if old == now then
+                        []
+                    else
+                        [ text " jumped in from " ] ++ renderSolarSystem old ++ [ text " and" ]
+            in
+                from ++ [ text " docked in " ] ++ renderStation nowStation now
+
+        ( _, _, Nothing, _ ) ->
+            [ text " is in a station off the map" ]
+
+        ( Nothing, _, _, _ ) ->
+            [ text " was in a station off the map" ]
 
 
 renderEvent : FleetEvent -> Html Action
@@ -179,10 +225,10 @@ renderEvent event =
                     renderEvent' Nothing <| list <| text <| "Free move is now " ++ (renderChange change.now)
 
                 FleetEventLocationChange change ->
-                    renderEvent' (Just change.id) [ (text " went from "), (renderLocation change.old), (text " to "), (renderLocation change.now) ]
+                    renderEvent' (Just change.id) <| renderLocationChange change
 
                 FleetEventMassLocationChange change ->
-                    renderEvent' Nothing [ (text "A whole lot of people went from "), (renderLocation change.old), (text " to "), (renderLocation change.now) ]
+                    renderEvent' Nothing <| [ text <| toString <| List.length change.ids ] ++ renderLocationChange change
 
                 FleetEventMemberJoin join ->
                     renderEvent' (Just join.id) <| list <| text <| " joined your fleet."
