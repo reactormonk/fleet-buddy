@@ -27,7 +27,7 @@ encodePing obj = Encode.object
   ]
 type ServerToClient = ServerToClientFleetUpdates FleetUpdates
 type alias FleetUpdates = { state : FleetState, events : List FleetEvent }
-type alias FleetState = { fleet : CompressedFleet, members : List CompressedMember, wings : List CompressedWing }
+type alias FleetState = { fleet : CompressedFleet, members : List CompressedMember, wings : List CompressedWing, now : Date }
 type alias CompressedFleet = { fleetId : String, isFreeMove : Bool, isRegistered : Bool, isVoiceEnabled : Bool, motd : String }
 type alias CompressedMember = { fleetId : String, boosterID : Int, character : CompressedStandardIdentifier_Long_String, joinTime : Date, roleID : Int, ship : CompressedStandardIdentifier_Long_String, solarSystem : CompressedStandardIdentifier_Long_String, squadID : String, station : Maybe CompressedStandardIdentifier_Long_String, takesFleetWarp : Bool, wingID : String }
 type alias CompressedStandardIdentifier_Long_String = { id : String, name : String }
@@ -55,7 +55,7 @@ decodeFleetUpdates =
   Decode.succeed FleetUpdates |: ("state" := decodeFleetState) |: ("events" := Decode.list decodeFleetEvent)
 decodeFleetState : Decode.Decoder FleetState
 decodeFleetState =
-  Decode.succeed FleetState |: ("fleet" := decodeCompressedFleet) |: ("members" := Decode.list decodeCompressedMember) |: ("wings" := Decode.list decodeCompressedWing)
+  Decode.succeed FleetState |: ("fleet" := decodeCompressedFleet) |: ("members" := Decode.list decodeCompressedMember) |: ("wings" := Decode.list decodeCompressedWing) |: ("now" := date)
 decodeCompressedFleet : Decode.Decoder CompressedFleet
 decodeCompressedFleet =
   Decode.succeed CompressedFleet |: ("fleetId" := Decode.string) |: ("isFreeMove" := Decode.bool) |: ("isRegistered" := Decode.bool) |: ("isVoiceEnabled" := Decode.bool) |: ("motd" := Decode.string)
@@ -139,6 +139,7 @@ encodeFleetState obj = Encode.object
   [ ("fleet", encodeCompressedFleet obj.fleet)
   , ("members", Encode.list <| List.map encodeCompressedMember obj.members)
   , ("wings", Encode.list <| List.map encodeCompressedWing obj.wings)
+  , ("now", Encode.string <| toUtcIsoString obj.now)
   ]
 encodeCompressedFleet : CompressedFleet -> Encode.Value
 encodeCompressedFleet obj = Encode.object

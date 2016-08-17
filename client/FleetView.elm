@@ -268,13 +268,15 @@ view model =
                         |> List.reverse
                         |> List.map (\( ( id, name ), cnt ) -> renderShip { id = id, name = name } cnt)
             in
-                div [ classList [ ( "ui", True ), ( "two", True ), ( "column", True ), ( "grid", True ) ] ]
-                    [ div [ classList [ ( "ten", True ), ( "wide", True ), ( "column", True ) ] ]
-                        [ div [ classList [ ( "ui", True ), ( "cards", True ) ] ] countedShips
-                        ]
-                    , div [ classList [ ( "five", True ), ( "wide", True ), ( "column", True ) ] ]
-                        [ div [ classList [ ( "ui", True ), ( "feed", True ) ] ] <|
-                            List.map renderEvent data.events
+                div [ classList [ ( "ui", True ), ( "container", True ) ] ]
+                    [ div [ classList [ ( "ui", True ), ( "two", True ), ( "column", True ), ( "grid", True ) ] ]
+                        [ div [ classList [ ( "ten", True ), ( "wide", True ), ( "column", True ) ] ]
+                            [ div [ classList [ ( "ui", True ), ( "cards", True ) ] ] countedShips
+                            ]
+                        , div [ classList [ ( "five", True ), ( "wide", True ), ( "column", True ) ] ]
+                            [ div [ classList [ ( "ui", True ), ( "feed", True ) ] ] <|
+                                List.map renderEvent data.events
+                            ]
                         ]
                     ]
 

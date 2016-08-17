@@ -3,13 +3,15 @@ package utils
 import argonaut._, argonaut.Argonaut._, argonaut.Shapeless._
 import java.lang.NumberFormatException
 import java.time.Clock
-import org.http4s.Uri
+import org.http4s.{ Response, Uri }
 import org.http4s.Uri.Authority
 import org.http4s.util.CaseInsensitiveString
 import scala.concurrent.duration.Duration
+import scala.collection.concurrent.TrieMap
 import org.http4s.server.websocket._
 import org.http4s.websocket.WebsocketBits._
-import scalaz.stream.{Exchange, Process, Sink}
+import scalaz.stream.{Exchange, Process, Sink, async}
+import scalaz.stream.async.mutable.Topic
 import java.util.concurrent.ScheduledExecutorService
 import scalaz.concurrent.Task
 import scalaz._
@@ -19,7 +21,6 @@ import oauth._
 import shared._
 import eveapi._
 import eveapi.oauth._
-import OAuth2.Api
 import eveapi.utils.Decoders._
 
 case class EveServer(server: Uri.RegName)
@@ -39,9 +40,19 @@ case class WebSocket(pollInterval: Duration, oauth: OAuth2, server: EveServer) {
   )
   def fleetUri(id: Long, server: EveServer) = Uri(scheme = Some(CaseInsensitiveString("https")), authority = Some(Authority(host=server.server)), path = s"/fleets/$id/")
 
-  def apply(user: User, fleetId: Long)(implicit s: ScheduledExecutorService) = {
-    val source: Process[Api, FleetState] = ApiStream.fleetPollSource(fleetUri(fleetId, server), pollInterval, Execute.OAuthInterpreter)
-    val serverToClient: Process[Task, ServerToClient] = ApiStream.toClient(source).translate[Task](ApiStream.fromApiStream(oauth, user.token))
+  val topics = TrieMap[Long, Topic[FleetState]]()
+
+  def topic(user: User, fleetId: Long)(implicit s: ScheduledExecutorService): Topic[EveApiError \/ FleetState] = {
+    topics.getOrElseUpdate(fleetId,
+      async.topic(
+        ApiStream.fleetPollSource(fleetUri(fleetId, server), pollInterval, Execute.OAuthInterpreter)
+          .translate[Task](ApiStream.fromApiStream(oauth, user.token))
+          , true)
+    )
+  }
+
+  def apply(user: User, fleetId: Long)(implicit s: ScheduledExecutorService): Task[Response] = {
+    val serverToClient: Process[Task, ServerToClient] = ApiStream.toClient(topic(user, fleetId).subscribe)
     val websocketProtocol: Process[Task, Text] = serverToClient.map(m => Text(m.asJson.nospaces))
     val fromClient = ApiStream.fromClient.contramap[WebSocketFrame]({
       case Text(t, _) => Parse.decodeEither[ClientToServer](t).fold(err => throw new IllegalArgumentException(s"Invalid json: $t"), x => x)

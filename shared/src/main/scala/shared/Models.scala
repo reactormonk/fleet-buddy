@@ -12,7 +12,7 @@ trait Id[T] {
   def id: Long
 }
 
-case class FleetState(fleet: CompressedFleet, members: List[CompressedMember], wings: List[CompressedWing])
+case class FleetState(fleet: CompressedFleet, members: List[CompressedMember], wings: List[CompressedWing], now: Instant)
 
 sealed trait FleetEvent
 sealed trait Change[T] extends FleetEvent {
@@ -48,3 +48,4 @@ case class Ping(foo: String) extends ClientToServer
 
 sealed trait ServerToClient
 case class FleetUpdates(state: FleetState, events: List[FleetEvent]) extends ServerToClient
+case class ServerError(error: EveException) extends ServerToClient

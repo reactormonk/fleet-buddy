@@ -85,13 +85,13 @@ on conflict do nothing
   val solarSystemSql = idTemplate[SolarSystem]("solarsystems")
   val shipSql = idTemplate[Ship]("ships")
 
-  def insert(s: FleetState, recorded: Instant) = {
+  def insert(s: FleetState) = {
     for {
       _ <- User.charInsertSql.updateMany(s.members.map(_.character))
       _ <- stationSql.updateMany(s.members.flatMap(_.station))
       _ <- solarSystemSql.updateMany(s.members.map(_.solarSystem))
       _ <- shipSql.updateMany(s.members.map(_.ship))
-      id <- fleetInsertQuery(s.fleet, recorded).withUniqueGeneratedKeys[Long]("id")
+      id <- fleetInsertQuery(s.fleet, s.now).withUniqueGeneratedKeys[Long]("id")
       _ <- wingStatusSql.updateMany(s.wings.map(w => (id, w.wingId, w.name)))
       _ <- squadStatusSql.updateMany(s.wings.flatMap(w => w.squadsList.map(s => (id, w.wingId, s.squadId, s.name))))
       _ <- memberStatusSql.updateMany(
@@ -184,7 +184,7 @@ and recorded between ? and ?
             CompressedWing(id, values.head._1, values.head._2, values.map(_._3))
           }).toList
         })
-      } yield FleetState(fleet, members, wings)
+      } yield FleetState(fleet, members, wings, recorded)
       Process.eval(res)
     })
   }

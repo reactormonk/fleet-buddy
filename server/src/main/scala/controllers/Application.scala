@@ -37,7 +37,7 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
 
   val storeToken: OAuth2Token => Task[Response] = { token =>
     val verified: Task[Err \/ (VerifyAnswer, OAuth2Token)] =
-      OAuth2.verify.runReader(oauth).runState(token).runDisjunction[EveApiError].detach.map(_.leftMap(ApiError.apply))
+      OAuth2.verify.runReader(oauth).runState(token).runDisjunction.detach.map(_.leftMap(ApiError.apply))
     verified.flatMap({ _ match {
       case -\/(err) => {
         err.printStackTrace
@@ -60,7 +60,7 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
     StaticFile.fromResource("/" + file, Some(request)).map(Task.now).getOrElse(NotFound())
   }
 
-  val authed: Kleisli[Task, (User, Request), Response] = Kleisli({ case (user, request) => println(request); request match {
+  val authed: Kleisli[Task, (User, Request), Response] = Kleisli({ case (user, request) => request match {
     case GET -> Root / path if List(".js", ".css", ".map", ".html").exists(path.endsWith) =>
       static(path, request)
     case GET -> Root / "fleet-ws" / fleetId => ws(user, fleetId.toLong)

@@ -38,34 +38,44 @@ object ApiStream {
   val compress = Compress[Uri]()(eveapi.UriPathLens)
   import compress._
 
-  def fleetState(fleetUri: Uri)
-    (implicit m: DecodeJson[Paginated[crest.Member[Uri]]], w: DecodeJson[Paginated[Wing[Uri]]]): Free[Lift.Link, FleetState] =
+  type StreamS = Fx.fx3[Reader[OAuth2, ?], Task, State[OAuth2Token, ?]]
+  type ApiStream[T] = Eff[StreamS, T]
+
+  def fleetState(fleetUri: Uri)(implicit m: DecodeJson[Paginated[crest.Member[Uri]]], w: DecodeJson[Paginated[Wing[Uri]]]): Free[Lift.Link, Reader[Clock, FleetState]] =
     Lift.get(GetLinkI[Uri, Fleet[Uri]](fleetUri)).flatMap({ f =>
       val m = Lift.get(members(fleetUri))
       val w = Lift.get(wings(fleetUri))
       (m |@| w).tupled.map({ case (m, w) =>
-        FleetState(compress.compress(f), m.items.map(x => compress.compress(x)), w.items.map(x => compress.compress(x)))
+        Reader({clock => FleetState(compress.compress(f), m.items.map(x => compress.compress(x)), w.items.map(x => compress.compress(x)), clock.instant)})
       })
     })
 
-  def fleetPollSource(fleetUri: Uri, interval: Duration, eval: Lift.Link ~> Api)(implicit ec: ScheduledExecutorService): Process[Api, FleetState] =
-    (Process.emit(()) ++ time.awakeEvery(interval)).translate(toApiStream).flatMap[Api, FleetState]({ _ =>
-      Process.eval(fleetState(fleetUri).foldMap(eval))
+  def fleetPollSource(fleetUri: Uri, interval: Duration, eval: Lift.Link ~> Api)(implicit ec: ScheduledExecutorService): Process[ApiStream, EveApiError \/ FleetState] =
+    (Process.emit(()) ++ time.awakeEvery(interval)).translate(toApiStream).flatMap[ApiStream, EveApiError \/ FleetState]({ _ =>
+      Process.eval({
+        fleetState(fleetUri)
+          .foldMap(eval)
+          .flatMap({reader => ask[EveApiS, OAuth2].map({(oauth: OAuth2) => reader.run(oauth.clock)})}).runDisjunction
+      })
     })
 
-  def toClient(source: Process[Api, FleetState]): Process[Api, ServerToClient] =
-    source.stateScan(Scalaz.none[FleetState])(now => State({old =>
+  def toClient: Process1[FleetState, ServerToClient] =
+    process1.stateScan(Scalaz.none[FleetState])(now => State({old =>
         (Some(now), FleetUpdates(now, old.toList.flatMap(o => FleetDiff(o, now))))
       }))
 
   val fromClient: Sink[Task, ClientToServer] = Process.constant(x => Task.delay(println(x)))
 
-  val toApiStream = new NaturalTransformation[Task, Api] {
-    def apply[T](fa: Task[T]): Api[T] = innocentTask(fa)
+  val toApiStream = new NaturalTransformation[Task, ApiStream] {
+    def apply[T](fa: Task[T]): ApiStream[T] = innocentTask(fa)
   }
 
   def fromApiStream(oauth: OAuth2, token: OAuth2Token) = new NaturalTransformation[Api, Task] {
     def apply[T](fa: Api[T]): Task[T] =
       Eff.detach[Task, EveApiError \/ (T, OAuth2Token)](fa.runReader(oauth).runState(token).runDisjunction).map(_.map(_._1).fold(err => throw err, x => x))
+  }
+
+  def toDB[T[_]](source: Process[T, FleetState]): Process[T, Unit] = {
+    source.map(models.FleetHistory.insert)
   }
 }
