@@ -8,7 +8,7 @@ import scalaz._, Scalaz._
 import java.util.concurrent.ScheduledExecutorService
 import eveapi.data.crest.GetLinkI
 
-import argonaut._, argonaut.Argonaut._, argonaut.Shapeless._
+import argonaut._, argonaut.Argonaut._, argonaut.ArgonautShapeless._
 import org.atnos.eff._, org.atnos.eff.syntax.eff._, org.atnos.eff.syntax.all._, org.atnos.eff.all._
 import org.http4s._, org.http4s.dsl._, org.http4s.client._, org.http4s.util.CaseInsensitiveString
 
@@ -38,7 +38,7 @@ object ApiStream {
   val compress = Compress[Uri]()(eveapi.UriPathLens)
   import compress._
 
-  type StreamS = Fx.fx3[Reader[OAuth2, ?], Task, State[OAuth2Token, ?]]
+  type StreamS = Fx.fx3[Reader[OAuth2, ?], State[OAuth2Token, ?], Task]
   type ApiStream[T] = Eff[StreamS, T]
 
   def fleetState(fleetUri: Uri)(implicit m: DecodeJson[Paginated[crest.Member[Uri]]], w: DecodeJson[Paginated[Wing[Uri]]]): Free[Lift.Link, Reader[Clock, FleetState]] =
@@ -55,7 +55,8 @@ object ApiStream {
       Process.eval({
         fleetState(fleetUri)
           .foldMap(eval)
-          .flatMap({reader => ask[EveApiS, OAuth2].map({(oauth: OAuth2) => reader.run(oauth.clock)})}).runDisjunction
+          .flatMap({reader => ask[EveApiS, OAuth2].map({(oauth: OAuth2) => reader.run(oauth.clock)})})
+          .runDisjunction[EveApiError, StreamS]
       })
     })
 
@@ -70,9 +71,9 @@ object ApiStream {
     def apply[T](fa: Task[T]): ApiStream[T] = innocentTask(fa)
   }
 
-  def fromApiStream(oauth: OAuth2, token: OAuth2Token) = new NaturalTransformation[Api, Task] {
-    def apply[T](fa: Api[T]): Task[T] =
-      Eff.detach[Task, EveApiError \/ (T, OAuth2Token)](fa.runReader(oauth).runState(token).runDisjunction).map(_.map(_._1).fold(err => throw err, x => x))
+  def fromApiStream(oauth: OAuth2, token: OAuth2Token) = new NaturalTransformation[ApiStream, Task] {
+    def apply[T](fa: ApiStream[T]): Task[T] =
+      Eff.detach[Task, (T, OAuth2Token)](fa.runReader(oauth).runState(token)).map(_._1)
   }
 
   def toDB[T[_]](source: Process[T, FleetState]): Process[T, Unit] = {

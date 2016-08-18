@@ -1,6 +1,6 @@
 package utils
 
-import argonaut._, argonaut.Argonaut._, argonaut.Shapeless._
+import argonaut._, argonaut.Argonaut._, argonaut.ArgonautShapeless._
 import java.lang.NumberFormatException
 import java.time.Clock
 import org.http4s.{ Response, Uri }
@@ -22,6 +22,7 @@ import shared._
 import eveapi._
 import eveapi.oauth._
 import eveapi.utils.Decoders._
+import eveapi.errors.{EveApiError, EveApiStatusFailed}
 
 case class EveServer(server: Uri.RegName)
 
@@ -40,7 +41,7 @@ case class WebSocket(pollInterval: Duration, oauth: OAuth2, server: EveServer) {
   )
   def fleetUri(id: Long, server: EveServer) = Uri(scheme = Some(CaseInsensitiveString("https")), authority = Some(Authority(host=server.server)), path = s"/fleets/$id/")
 
-  val topics = TrieMap[Long, Topic[FleetState]]()
+  val topics = TrieMap[Long, Topic[EveApiError \/ FleetState]]()
 
   def topic(user: User, fleetId: Long)(implicit s: ScheduledExecutorService): Topic[EveApiError \/ FleetState] = {
     topics.getOrElseUpdate(fleetId,
@@ -52,7 +53,11 @@ case class WebSocket(pollInterval: Duration, oauth: OAuth2, server: EveServer) {
   }
 
   def apply(user: User, fleetId: Long)(implicit s: ScheduledExecutorService): Task[Response] = {
-    val serverToClient: Process[Task, ServerToClient] = ApiStream.toClient(topic(user, fleetId).subscribe)
+    val subscribed = topic(user, fleetId).subscribe
+    val serverToClient: Process[Task, ServerToClient] = subscribed
+      .pipe(ApiStream.toClient.liftR[EveApiError])
+      .map(_.recover({case EveApiStatusFailed(status, \/-(body)) => ServerError(body)})
+        .fold(err => throw err, x => x))
     val websocketProtocol: Process[Task, Text] = serverToClient.map(m => Text(m.asJson.nospaces))
     val fromClient = ApiStream.fromClient.contramap[WebSocketFrame]({
       case Text(t, _) => Parse.decodeEither[ClientToServer](t).fold(err => throw new IllegalArgumentException(s"Invalid json: $t"), x => x)

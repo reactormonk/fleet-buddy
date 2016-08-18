@@ -16,7 +16,7 @@ import utils._
 
 case class OAuthAuth(key: PrivateKey, clock: Clock) {
   def setCookie(message: String): Cookie = {
-    val signed = Crypto.signToken[Reader[PrivateKey, ?] |: Reader[Clock, ?] |: NoEffect](message).runReader(key).runReader(clock).run
+    val signed = Crypto.signToken[Fx.fx2[Reader[PrivateKey, ?], Reader[Clock, ?]]](message).runReader(key).runReader(clock).run
     Cookie("authcookie", signed)
   }
 
@@ -28,7 +28,7 @@ case class OAuthAuth(key: PrivateKey, clock: Clock) {
 
   def maybeAuth(request: Request): Option[String] = {
     headers.Cookie.from(request.headers).flatMap(c =>
-      verifyCookie[Reader[PrivateKey, ?] |: Reader[Clock, ?] |: NoEffect](c).runReader(key).runReader(clock).run
+      verifyCookie[Fx.fx2[Reader[PrivateKey, ?], Reader[Clock, ?]]](c).runReader(key).runReader(clock).run
     )
   }
 }

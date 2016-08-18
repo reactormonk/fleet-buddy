@@ -47,26 +47,22 @@ init struct =
 
 update : Action -> Model -> ( Model, Cmd Action )
 update action model =
-    case model.data of
-        Just current ->
-            case action of
-                FromServer msg ->
-                    case msg of
-                        ServerToClientFleetUpdates updates ->
+    case action of
+        FromServer msg ->
+            case msg of
+                ServerToClientFleetUpdates updates ->
+                    case model.data of
+                        Just current ->
                             ( { model | data = Just { state = updates.state, events = List.take 100 (updates.events ++ current.events) } }, Cmd.none )
 
-                InvalidMessage _ ->
-                    ( model, Cmd.none )
-
-        Nothing ->
-            case action of
-                FromServer msg ->
-                    case msg of
-                        ServerToClientFleetUpdates updates ->
+                        Nothing ->
                             ( { model | data = Just { state = updates.state, events = List.take 100 updates.events } }, Cmd.none )
 
-                InvalidMessage _ ->
-                    ( model, Cmd.none )
+                ServerToClientServerError error ->
+                    Debug.log "error from server: " error |> (\_ -> ( model, Cmd.none ))
+
+        InvalidMessage _ ->
+            ( model, Cmd.none )
 
 
 insertOrUpdate : comparable -> (Maybe a -> a) -> Dict comparable a -> Dict comparable a

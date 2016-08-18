@@ -25,7 +25,7 @@ encodePing : Ping -> Encode.Value
 encodePing obj = Encode.object
   [ ("foo", Encode.string obj.foo)
   ]
-type ServerToClient = ServerToClientFleetUpdates FleetUpdates
+type ServerToClient = ServerToClientFleetUpdates FleetUpdates | ServerToClientServerError ServerError
 type alias FleetUpdates = { state : FleetState, events : List FleetEvent }
 type alias FleetState = { fleet : CompressedFleet, members : List CompressedMember, wings : List CompressedWing, now : Date }
 type alias CompressedFleet = { fleetId : String, isFreeMove : Bool, isRegistered : Bool, isVoiceEnabled : Bool, motd : String }
@@ -46,9 +46,16 @@ type alias RegisteredChange = { old : Bool, now : Bool }
 type alias ShipChange = { id : CompressedStandardIdentifier_Long_String, old : CompressedStandardIdentifier_Long_String, now : CompressedStandardIdentifier_Long_String, where_escaped : CompressedLocation }
 type alias SquadMove = { id : CompressedStandardIdentifier_Long_String, old : CompressedSquad, now : CompressedSquad }
 type alias WingMove = { id : CompressedStandardIdentifier_Long_String, old : CompressedWing, now : CompressedWing }
+type alias ServerError = { error : EveException }
+type EveException = EveExceptionAccessDeniedForbiddenError AccessDeniedForbiddenError | EveExceptionForbiddenError ForbiddenError | EveExceptionUnauthorizedError UnauthorizedError | EveExceptionUnsupportedMediaTypeError UnsupportedMediaTypeError
+type alias AccessDeniedForbiddenError = { key : String, isLocalized : Bool, message : String }
+type alias ForbiddenError = { isLocalized : Bool, key : String, message : String, title : Maybe String }
+type alias UnauthorizedError = { key : String, isLocalized : Bool, message : String }
+type alias UnsupportedMediaTypeError = { key : String, message : String }
 decodeServerToClient : Decode.Decoder ServerToClient
 decodeServerToClient = Decode.oneOf
   [ ("FleetUpdates" := Decode.map ServerToClientFleetUpdates decodeFleetUpdates)
+  , ("ServerError" := Decode.map ServerToClientServerError decodeServerError)
   ]
 decodeFleetUpdates : Decode.Decoder FleetUpdates
 decodeFleetUpdates =
@@ -121,12 +128,35 @@ decodeSquadMove =
 decodeWingMove : Decode.Decoder WingMove
 decodeWingMove =
   Decode.succeed WingMove |: ("id" := decodeCompressedStandardIdentifier_Long_String) |: ("old" := decodeCompressedWing) |: ("now" := decodeCompressedWing)
+decodeServerError : Decode.Decoder ServerError
+decodeServerError =
+  Decode.succeed ServerError |: ("error" := decodeEveException)
+decodeEveException : Decode.Decoder EveException
+decodeEveException = Decode.oneOf
+  [ ("AccessDeniedForbiddenError" := Decode.map EveExceptionAccessDeniedForbiddenError decodeAccessDeniedForbiddenError)
+  , ("ForbiddenError" := Decode.map EveExceptionForbiddenError decodeForbiddenError)
+  , ("UnauthorizedError" := Decode.map EveExceptionUnauthorizedError decodeUnauthorizedError)
+  , ("UnsupportedMediaTypeError" := Decode.map EveExceptionUnsupportedMediaTypeError decodeUnsupportedMediaTypeError)
+  ]
+decodeAccessDeniedForbiddenError : Decode.Decoder AccessDeniedForbiddenError
+decodeAccessDeniedForbiddenError =
+  Decode.succeed AccessDeniedForbiddenError |: ("key" := Decode.string) |: ("isLocalized" := Decode.bool) |: ("message" := Decode.string)
+decodeForbiddenError : Decode.Decoder ForbiddenError
+decodeForbiddenError =
+  Decode.succeed ForbiddenError |: ("isLocalized" := Decode.bool) |: ("key" := Decode.string) |: ("message" := Decode.string) |: ("title" := Decode.maybe Decode.string)
+decodeUnauthorizedError : Decode.Decoder UnauthorizedError
+decodeUnauthorizedError =
+  Decode.succeed UnauthorizedError |: ("key" := Decode.string) |: ("isLocalized" := Decode.bool) |: ("message" := Decode.string)
+decodeUnsupportedMediaTypeError : Decode.Decoder UnsupportedMediaTypeError
+decodeUnsupportedMediaTypeError =
+  Decode.succeed UnsupportedMediaTypeError |: ("key" := Decode.string) |: ("message" := Decode.string)
 
 encodeServerToClient: ServerToClient -> Encode.Value
 encodeServerToClient obj =
   let
     (typefield, inner) = case obj of
       ServerToClientFleetUpdates obj2 -> ("FleetUpdates", encodeFleetUpdates obj2)
+      ServerToClientServerError obj2 -> ("ServerError", encodeServerError obj2)
     in
       Encode.object [(typefield, inner)]
 encodeFleetUpdates : FleetUpdates -> Encode.Value
@@ -266,4 +296,43 @@ encodeWingMove obj = Encode.object
   [ ("id", encodeCompressedStandardIdentifier_Long_String obj.id)
   , ("old", encodeCompressedWing obj.old)
   , ("now", encodeCompressedWing obj.now)
+  ]
+encodeServerError : ServerError -> Encode.Value
+encodeServerError obj = Encode.object
+  [ ("error", encodeEveException obj.error)
+  ]
+
+encodeEveException: EveException -> Encode.Value
+encodeEveException obj =
+  let
+    (typefield, inner) = case obj of
+      EveExceptionAccessDeniedForbiddenError obj2 -> ("AccessDeniedForbiddenError", encodeAccessDeniedForbiddenError obj2)
+      EveExceptionForbiddenError obj2 -> ("ForbiddenError", encodeForbiddenError obj2)
+      EveExceptionUnauthorizedError obj2 -> ("UnauthorizedError", encodeUnauthorizedError obj2)
+      EveExceptionUnsupportedMediaTypeError obj2 -> ("UnsupportedMediaTypeError", encodeUnsupportedMediaTypeError obj2)
+    in
+      Encode.object [(typefield, inner)]
+encodeAccessDeniedForbiddenError : AccessDeniedForbiddenError -> Encode.Value
+encodeAccessDeniedForbiddenError obj = Encode.object
+  [ ("key", Encode.string obj.key)
+  , ("isLocalized", Encode.bool obj.isLocalized)
+  , ("message", Encode.string obj.message)
+  ]
+encodeForbiddenError : ForbiddenError -> Encode.Value
+encodeForbiddenError obj = Encode.object
+  [ ("isLocalized", Encode.bool obj.isLocalized)
+  , ("key", Encode.string obj.key)
+  , ("message", Encode.string obj.message)
+  , ("title", Maybe.withDefault Encode.null <| Maybe.map Encode.string obj.title)
+  ]
+encodeUnauthorizedError : UnauthorizedError -> Encode.Value
+encodeUnauthorizedError obj = Encode.object
+  [ ("key", Encode.string obj.key)
+  , ("isLocalized", Encode.bool obj.isLocalized)
+  , ("message", Encode.string obj.message)
+  ]
+encodeUnsupportedMediaTypeError : UnsupportedMediaTypeError -> Encode.Value
+encodeUnsupportedMediaTypeError obj = Encode.object
+  [ ("key", Encode.string obj.key)
+  , ("message", Encode.string obj.message)
   ]

@@ -24,7 +24,6 @@ lazy val server = (project in file("server")).settings(
       "oncue.knobs" %% "core" % "3.6.0a"
     , "org.scalaz" %% "scalaz-core" % "7.2.2"
     , "org.scalaz" %% "scalaz-concurrent" % "7.2.2"
-    , "org.atnos" %% "eff-scalaz" % "1.7.1"
     , "commons-codec" % "commons-codec" % "1.10"
     , "ch.qos.logback" %  "logback-classic" % "1.1.7"
     , "org.scalacheck" %% "scalacheck" % "1.13.0" % Test
