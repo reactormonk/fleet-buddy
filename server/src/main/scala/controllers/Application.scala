@@ -19,6 +19,7 @@ import oauth._
 import effects._
 import errors._
 import models._
+import eve._
 
 import eveapi.oauth._
 import eveapi.utils.TaskEffect._
@@ -55,7 +56,7 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
   val oauthservice = oauth.oauthService(storeToken)
   val oauthauth = OAuthAuth(appKey, clock)
 
-  val ws = WebSocket(pollInterval, oauth, eveserver)
+  val topics = TopicHolder(pollInterval, oauth, eveserver)
   def static(file: String, request: Request) = {
     StaticFile.fromResource("/" + file, Some(request)).map(Task.now).getOrElse(NotFound())
   }
@@ -63,7 +64,10 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
   val authed: Kleisli[Task, (User, Request), Response] = Kleisli({ case (user, request) => request match {
     case GET -> Root / path if List(".js", ".css", ".map", ".html").exists(path.endsWith) =>
       static(path, request)
-    case GET -> Root / "fleet-ws" / fleetId => ws(user, fleetId.toLong)
+    case GET -> Root / "fleet-ws" / fleetId => {
+      val topic = topics(user, fleetId.toLong)
+      WebSocket(topic.subscribe)
+    }
     case GET -> _ => static("index.html", request)
   }})
 

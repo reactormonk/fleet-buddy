@@ -49,3 +49,4 @@ case class Ping(foo: String) extends ClientToServer
 sealed trait ServerToClient
 case class FleetUpdates(state: FleetState, events: List[FleetEvent]) extends ServerToClient
 case class ServerError(error: EveException) extends ServerToClient
+case object EndOfStream extends ServerToClient

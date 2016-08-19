@@ -85,7 +85,7 @@ on conflict do nothing
   val solarSystemSql = idTemplate[SolarSystem]("solarsystems")
   val shipSql = idTemplate[Ship]("ships")
 
-  def insert(s: FleetState) = {
+  def insert(s: FleetState): ConnectionIO[Unit] = {
     for {
       _ <- User.charInsertSql.updateMany(s.members.map(_.character))
       _ <- stationSql.updateMany(s.members.flatMap(_.station))

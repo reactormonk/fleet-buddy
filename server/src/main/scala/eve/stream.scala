@@ -1,10 +1,11 @@
-package utils
+package eve
 
 import java.time.Clock
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 import scalaz.concurrent.{Strategy, Task}
 import scalaz._, Scalaz._
+import scalaz.stream.Cause.{Terminated, End}
 import java.util.concurrent.ScheduledExecutorService
 import eveapi.data.crest.GetLinkI
 
@@ -18,12 +19,12 @@ import effects._
 import eveapi.utils.TaskEffect._
 import shared._
 
+import eveapi.utils.Decoders._
 import eveapi._
-import eveapi.errors.EveApiError
+import eveapi.errors.{EveApiError, EveApiStatusFailed}
 import eveapi.oauth._
 import eveapi.data.crest
 import eveapi.data.crest._
-import eveapi.utils.Decoders._
 import eveapi.compress._
 import OAuth2._
 
@@ -41,7 +42,7 @@ object ApiStream {
   type StreamS = Fx.fx3[Reader[OAuth2, ?], State[OAuth2Token, ?], Task]
   type ApiStream[T] = Eff[StreamS, T]
 
-  def fleetState(fleetUri: Uri)(implicit m: DecodeJson[Paginated[crest.Member[Uri]]], w: DecodeJson[Paginated[Wing[Uri]]]): Free[Lift.Link, Reader[Clock, FleetState]] =
+  def fleetState(fleetUri: Uri): Free[Lift.Link, Reader[Clock, FleetState]] =
     Lift.get(GetLinkI[Uri, Fleet[Uri]](fleetUri)).flatMap({ f =>
       val m = Lift.get(members(fleetUri))
       val w = Lift.get(wings(fleetUri))
@@ -59,11 +60,19 @@ object ApiStream {
           .runDisjunction[EveApiError, StreamS]
       })
     })
+    .takeWhile(
+      _.fold({
+        case EveApiStatusFailed(status, \/-(AccessDeniedForbiddenError(_, _, _))) => false
+        case _ => true
+      }, {_ => true})
+    )
 
   def toClient: Process1[FleetState, ServerToClient] =
-    process1.stateScan(Scalaz.none[FleetState])(now => State({old =>
+    process1
+      .stateScan(Scalaz.none[FleetState])((now: FleetState) => State({old =>
         (Some(now), FleetUpdates(now, old.toList.flatMap(o => FleetDiff(o, now))))
       }))
+      .onComplete(Process.emit(EndOfStream))
 
   val fromClient: Sink[Task, ClientToServer] = Process.constant(x => Task.delay(println(x)))
 
@@ -74,9 +83,5 @@ object ApiStream {
   def fromApiStream(oauth: OAuth2, token: OAuth2Token) = new NaturalTransformation[ApiStream, Task] {
     def apply[T](fa: ApiStream[T]): Task[T] =
       Eff.detach[Task, (T, OAuth2Token)](fa.runReader(oauth).runState(token)).map(_._1)
-  }
-
-  def toDB[T[_]](source: Process[T, FleetState]): Process[T, Unit] = {
-    source.map(models.FleetHistory.insert)
   }
 }

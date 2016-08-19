@@ -26,6 +26,7 @@ type alias Model =
     { id : String
     , socket : FleetSocket
     , data : Maybe FleetModel
+    , running : Bool
     }
 
 
@@ -42,7 +43,7 @@ type Action
 
 init : FleetInit -> Model
 init struct =
-    { id = struct.id, data = Nothing, socket = fleetSocket struct }
+    { id = struct.id, data = Nothing, socket = fleetSocket struct, running = True }
 
 
 update : Action -> Model -> ( Model, Cmd Action )
@@ -53,13 +54,16 @@ update action model =
                 ServerToClientFleetUpdates updates ->
                     case model.data of
                         Just current ->
-                            ( { model | data = Just { state = updates.state, events = List.take 100 (updates.events ++ current.events) } }, Cmd.none )
+                            { model | data = Just { state = updates.state, events = List.take 100 (updates.events ++ current.events) } } ! []
 
                         Nothing ->
-                            ( { model | data = Just { state = updates.state, events = List.take 100 updates.events } }, Cmd.none )
+                            { model | data = Just { state = updates.state, events = List.take 100 updates.events } } ! []
 
                 ServerToClientServerError error ->
                     Debug.log "error from server: " error |> (\_ -> ( model, Cmd.none ))
+
+                ServerToClientEndOfStream _ ->
+                    { model | running = False } ! []
 
         InvalidMessage _ ->
             ( model, Cmd.none )
@@ -252,33 +256,39 @@ renderEvent event =
 
 view : Model -> Html Action
 view model =
-    case model.data of
-        Just data ->
-            let
-                countedShips =
-                    data.state.members
-                        |> List.map (\m -> ( m.ship.id, m.ship.name ))
-                        |> count
-                        |> Dict.toList
-                        |> List.sortBy snd
-                        |> List.reverse
-                        |> List.map (\( ( id, name ), cnt ) -> renderShip { id = id, name = name } cnt)
-            in
-                div [ classList [ ( "ui", True ), ( "container", True ) ] ]
-                    [ div [ classList [ ( "ui", True ), ( "two", True ), ( "column", True ), ( "grid", True ) ] ]
-                        [ div [ classList [ ( "ten", True ), ( "wide", True ), ( "column", True ) ] ]
-                            [ div [ classList [ ( "ui", True ), ( "cards", True ) ] ] countedShips
+    case model.running of
+        True ->
+            case model.data of
+                Just data ->
+                    let
+                        countedShips =
+                            data.state.members
+                                |> List.map (\m -> ( m.ship.id, m.ship.name ))
+                                |> count
+                                |> Dict.toList
+                                |> List.sortBy snd
+                                |> List.reverse
+                                |> List.map (\( ( id, name ), cnt ) -> renderShip { id = id, name = name } cnt)
+                    in
+                        div [ classList [ ( "ui", True ), ( "container", True ) ] ]
+                            [ div [ classList [ ( "ui", True ), ( "two", True ), ( "column", True ), ( "grid", True ) ] ]
+                                [ div [ classList [ ( "ten", True ), ( "wide", True ), ( "column", True ) ] ]
+                                    [ div [ classList [ ( "ui", True ), ( "cards", True ) ] ] countedShips
+                                    ]
+                                , div [ classList [ ( "five", True ), ( "wide", True ), ( "column", True ) ] ]
+                                    [ div [ classList [ ( "ui", True ), ( "feed", True ) ] ] <|
+                                        List.map renderEvent data.events
+                                    ]
+                                ]
                             ]
-                        , div [ classList [ ( "five", True ), ( "wide", True ), ( "column", True ) ] ]
-                            [ div [ classList [ ( "ui", True ), ( "feed", True ) ] ] <|
-                                List.map renderEvent data.events
-                            ]
-                        ]
-                    ]
 
-        Nothing ->
+                Nothing ->
+                    div []
+                        [ text "Loading..." ]
+
+        False ->
             div []
-                [ text "Loading..." ]
+                [ text "Fleet's over or you lost boss. Reload as needed." ]
 
 
 send : Model -> ClientToServer -> Cmd msg
@@ -305,7 +315,10 @@ fleetSocket struct =
 
 subscriptions : Model -> Sub Action
 subscriptions model =
-    WebSocket.listen model.socket.url (decodeString decodeServerToClient >> mapBoth InvalidMessage FromServer)
+    if model.running then
+        WebSocket.listen model.socket.url (decodeString decodeServerToClient >> mapBoth InvalidMessage FromServer)
+    else
+        Sub.none
 
 
 urlBuilder : String -> Builder

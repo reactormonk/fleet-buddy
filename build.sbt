@@ -77,7 +77,7 @@ lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared"))
     scalaVersion := scalaV,
     libraryDependencies ++= Seq(
       "eveapi" %% "compress" % eveapiVersion,
-      "org.reactormonk" %% "elmtypes" % "0.1"
+      "org.reactormonk" %% "elmtypes" % "0.2"
     )
   )
   .settings(globalSettings: _*)

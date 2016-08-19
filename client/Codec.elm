@@ -25,7 +25,8 @@ encodePing : Ping -> Encode.Value
 encodePing obj = Encode.object
   [ ("foo", Encode.string obj.foo)
   ]
-type ServerToClient = ServerToClientFleetUpdates FleetUpdates | ServerToClientServerError ServerError
+type ServerToClient = ServerToClientEndOfStream EndOfStream | ServerToClientFleetUpdates FleetUpdates | ServerToClientServerError ServerError
+type alias EndOfStream = {  }
 type alias FleetUpdates = { state : FleetState, events : List FleetEvent }
 type alias FleetState = { fleet : CompressedFleet, members : List CompressedMember, wings : List CompressedWing, now : Date }
 type alias CompressedFleet = { fleetId : String, isFreeMove : Bool, isRegistered : Bool, isVoiceEnabled : Bool, motd : String }
@@ -54,9 +55,13 @@ type alias UnauthorizedError = { key : String, isLocalized : Bool, message : Str
 type alias UnsupportedMediaTypeError = { key : String, message : String }
 decodeServerToClient : Decode.Decoder ServerToClient
 decodeServerToClient = Decode.oneOf
-  [ ("FleetUpdates" := Decode.map ServerToClientFleetUpdates decodeFleetUpdates)
+  [ ("EndOfStream" := Decode.map ServerToClientEndOfStream decodeEndOfStream)
+  , ("FleetUpdates" := Decode.map ServerToClientFleetUpdates decodeFleetUpdates)
   , ("ServerError" := Decode.map ServerToClientServerError decodeServerError)
   ]
+decodeEndOfStream : Decode.Decoder EndOfStream
+decodeEndOfStream =
+  Decode.succeed EndOfStream
 decodeFleetUpdates : Decode.Decoder FleetUpdates
 decodeFleetUpdates =
   Decode.succeed FleetUpdates |: ("state" := decodeFleetState) |: ("events" := Decode.list decodeFleetEvent)
@@ -155,10 +160,15 @@ encodeServerToClient: ServerToClient -> Encode.Value
 encodeServerToClient obj =
   let
     (typefield, inner) = case obj of
+      ServerToClientEndOfStream obj2 -> ("EndOfStream", encodeEndOfStream obj2)
       ServerToClientFleetUpdates obj2 -> ("FleetUpdates", encodeFleetUpdates obj2)
       ServerToClientServerError obj2 -> ("ServerError", encodeServerError obj2)
     in
       Encode.object [(typefield, inner)]
+encodeEndOfStream : EndOfStream -> Encode.Value
+encodeEndOfStream obj = Encode.object
+  [ 
+  ]
 encodeFleetUpdates : FleetUpdates -> Encode.Value
 encodeFleetUpdates obj = Encode.object
   [ ("state", encodeFleetState obj.state)
