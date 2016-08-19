@@ -27,7 +27,7 @@ case class EveServer(server: Uri.RegName)
 case class TopicHolder(pollInterval: Duration, oauth: OAuth2, server: EveServer)(implicit s: ScheduledExecutorService) {
   def fleetUri(id: Long, server: EveServer) = Uri(scheme = Some(CaseInsensitiveString("https")), authority = Some(Authority(host=server.server)), path = s"/fleets/$id/")
 
-  val topics = TrieMap[Long, Topic[EveApiError \/ FleetState]]()
+  private val topics = TrieMap[Long, Topic[EveApiError \/ FleetState]]()
 
   def apply(user: User, fleetId: Long): Topic[EveApiError \/ FleetState] = {
     topics

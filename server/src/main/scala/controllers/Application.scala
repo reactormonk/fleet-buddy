@@ -13,6 +13,8 @@ import org.http4s.Uri.{ Authority, RegName }
 import org.http4s.client.Client
 import org.http4s.server.blaze._
 import doobie.imports._
+import org.log4s.getLogger
+import shared.FleetState
 
 import utils._
 import oauth._
@@ -32,6 +34,8 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
   val client = org.http4s.client.blaze.PooledHttp1Client()
   implicit val scheduler = scalaz.stream.DefaultScheduler
   val oauth = OAuth2(client, settings, oauthState, clock, oauthClientSettings)
+
+  private[this] val logger = getLogger
 
   def getUser(id: String): Task[Option[User]] = User.load(id.toLong).transact(xa)
   def addUser(user: User): Task[Unit] = User.upsert(user).transact(xa)
@@ -57,6 +61,8 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
   val oauthauth = OAuthAuth(appKey, clock)
 
   val topics = TopicHolder(pollInterval, oauth, eveserver)
+  val dbs = DBHolder(xa)
+
   def static(file: String, request: Request) = {
     StaticFile.fromResource("/" + file, Some(request)).map(Task.now).getOrElse(NotFound())
   }
@@ -66,6 +72,8 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
       static(path, request)
     case GET -> Root / "fleet-ws" / fleetId => {
       val topic = topics(user, fleetId.toLong)
+      val toDB = dbs(topic.subscribe.collect({case \/-(s @ FleetState(_,_,_,_)) => s}))
+      Task.fork(toDB.run).unsafePerformAsync(_.fold({err => logger.error(s"Error while writing to DB: $err")}, x => x))
       WebSocket(topic.subscribe)
     }
     case GET -> _ => static("index.html", request)
