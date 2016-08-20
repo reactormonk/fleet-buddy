@@ -30,9 +30,9 @@ object FleetHistory {
   def fleetInsertQuery(owner: User, s: CompressedFleet, recorded: Instant) = {
     sql"""
 insert into fleetstate
-  (isFreeMove, isRegistered, isVoiceEnabled, motd, recorded, owner)
+  (id, isFreeMove, isRegistered, isVoiceEnabled, motd, recorded, owner)
 values
-  (${s.isFreeMove}, ${s.isRegistered}, ${s.isVoiceEnabled}, ${s.motd}, ${recorded}, ${owner.id})
+  (${s.fleetId}, ${s.isFreeMove}, ${s.isRegistered}, ${s.isVoiceEnabled}, ${s.motd}, ${recorded}, ${owner.id})
 """.update
   }
 

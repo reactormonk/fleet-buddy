@@ -73,7 +73,13 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
     case GET -> Root / "api" / "fleet-ws" / fleetId => {
       val topic = topics(user, fleetId.toLong)
       val toDB = dbs(user, topic.subscribe.collect({case \/-(s) => s}))
-      Task.fork(toDB.run).unsafePerformAsync(_.fold({err => logger.error(s"Error while writing to DB: $err")}, x => x))
+      Task.fork(toDB.run).unsafePerformAsync(_.fold({err =>
+        logger.error(s"Error from DB: $err")
+        err match {
+          case e: java.sql.BatchUpdateException =>
+            logger.error(e.getNextException.toString)
+        }
+      }, x => x))
       WebSocket(topic.subscribe)
     }
     case _ -> s if s.startsWith(Path("/api")) => NotFound()

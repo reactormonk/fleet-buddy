@@ -56,6 +56,11 @@ lazy val server = (project in file("server")).settings(
   , flywayDriver in Test := flywayDriver.value
   , flywayUser in Test := flywayUser.value
   , flywayPassword in Test := flywayPassword.value
+  , test := Def.sequential(
+      flywayClean in Test,
+      flywayMigrate in Test,
+      test in Test
+    ).value
 )
   .enablePlugins(BuildInfoPlugin)
   .settings(
