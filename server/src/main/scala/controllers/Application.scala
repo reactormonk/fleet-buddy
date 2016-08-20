@@ -72,7 +72,7 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
       static(path, request)
     case GET -> Root / "fleet-ws" / fleetId => {
       val topic = topics(user, fleetId.toLong)
-      val toDB = dbs(topic.subscribe.collect({case \/-(s @ FleetState(_,_,_,_)) => s}))
+      val toDB = dbs(topic.subscribe.collect({case \/-(s) => s}))
       Task.fork(toDB.run).unsafePerformAsync(_.fold({err => logger.error(s"Error while writing to DB: $err")}, x => x))
       WebSocket(topic.subscribe)
     }
