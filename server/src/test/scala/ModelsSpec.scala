@@ -26,5 +26,5 @@ object UserSpec extends Specification with AnalysisSpec {
   check(FleetHistory.selectMembers)
   check(FleetHistory.selectWings)
   check(FleetHistory.selectFleets)
-  check(FleetHistory.fleetInsertQuery(CompressedFleet(0, false, false, false, ""), Instant.now))
+  check(FleetHistory.fleetInsertQuery(User(0, "", OAuth2Token("", "", 0, "")), CompressedFleet(0, false, false, false, ""), Instant.now))
 }

@@ -24,17 +24,19 @@ import eveapi.oauth._
 
 case class EveServer(server: Uri.RegName)
 
+case class TopicKey(fleetId: Long, userId: Long)
+
 case class TopicHolder(pollInterval: Duration, oauth: OAuth2, server: EveServer)(implicit s: ScheduledExecutorService) {
   def fleetUri(id: Long, server: EveServer) = Uri(scheme = Some(CaseInsensitiveString("https")), authority = Some(Authority(host=server.server)), path = s"/fleets/$id/")
 
-  private val topics = TrieMap[Long, Topic[EveApiError \/ FleetState]]()
+  private val topics = TrieMap[TopicKey, Topic[EveApiError \/ FleetState]]()
 
   def apply(user: User, fleetId: Long): Topic[EveApiError \/ FleetState] = {
     topics
       .retain({ case (id, topic) =>
         ! topic.subscribe.isHalt
       })
-      .getOrElseUpdate(fleetId, {
+      .getOrElseUpdate(TopicKey(fleetId, user.id), {
         async.topic(
           ApiStream.fleetPollSource(fleetUri(fleetId, server), pollInterval, Execute.OAuthInterpreter)
             .translate[Task](ApiStream.fromApiStream(oauth, user.token))

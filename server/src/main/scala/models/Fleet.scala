@@ -27,12 +27,12 @@ case class CleanMemberState(
 )
 
 object FleetHistory {
-  def fleetInsertQuery(s: CompressedFleet, recorded: Instant) = {
+  def fleetInsertQuery(owner: User, s: CompressedFleet, recorded: Instant) = {
     sql"""
 insert into fleetstate
-  (isFreeMove, isRegistered, isVoiceEnabled, motd, recorded)
+  (isFreeMove, isRegistered, isVoiceEnabled, motd, recorded, owner)
 values
-  (${s.isFreeMove}, ${s.isRegistered}, ${s.isVoiceEnabled}, ${s.motd}, ${recorded})
+  (${s.isFreeMove}, ${s.isRegistered}, ${s.isVoiceEnabled}, ${s.motd}, ${recorded}, ${owner.id})
 """.update
   }
 
@@ -85,13 +85,13 @@ on conflict do nothing
   val solarSystemSql = idTemplate[SolarSystem]("solarsystems")
   val shipSql = idTemplate[Ship]("ships")
 
-  def insert(s: FleetState): ConnectionIO[Unit] = {
+  def insert(owner: User, s: FleetState): ConnectionIO[Unit] = {
     for {
       _ <- User.charInsertSql.updateMany(s.members.map(_.character))
       _ <- stationSql.updateMany(s.members.flatMap(_.station))
       _ <- solarSystemSql.updateMany(s.members.map(_.solarSystem))
       _ <- shipSql.updateMany(s.members.map(_.ship))
-      id <- fleetInsertQuery(s.fleet, s.now).withUniqueGeneratedKeys[Long]("id")
+      id <- fleetInsertQuery(owner, s.fleet, s.now).withUniqueGeneratedKeys[Long]("id")
       _ <- wingStatusSql.updateMany(s.wings.map(w => (id, w.wingId, w.name)))
       _ <- squadStatusSql.updateMany(s.wings.flatMap(w => w.squadsList.map(s => (id, w.wingId, s.squadId, s.name))))
       _ <- memberStatusSql.updateMany(
@@ -161,22 +161,25 @@ where
  squadstatus.parentstatus = wingstatus.parentstatus AND squadstatus.wingid = wingstatus.id
 """)
 
-  val selectFleets = Query[(Long, Instant, Instant), (Instant, Long, CompressedFleet)]("""
+  val selectFleets = Query[(Long, Long, Instant, Instant), (Instant, Long, Long, CompressedFleet)]("""
 select
   recorded,
   serial_id,
+  owner,
   id,
   isFreeMove,
   isRegistered,
   isVoiceEnabled,
   motd
 from fleetstate
-where id = ?
-and recorded between ? and ?
+where
+ id = ? AND
+ owner = ? AND
+ recorded between ? and ?
 """)
 
-  def load(id: Long, from: Instant = Instant.MIN, to: Instant = Instant.MAX): Process[ConnectionIO, FleetState] = {
-    selectFleets.process((id, from, to)).flatMap({ case (recorded, serial, fleet) =>
+  def load(id: Long, owner: User, from: Instant = Instant.MIN, to: Instant = Instant.MAX): Process[ConnectionIO, FleetState] = {
+    selectFleets.process((id, owner.id, from, to)).flatMap({ case (recorded, serial, owner, fleet) =>
       val res = for {
         members <- selectMembers.to[List](serial)
         wings <- selectWings.to[List](serial).map({

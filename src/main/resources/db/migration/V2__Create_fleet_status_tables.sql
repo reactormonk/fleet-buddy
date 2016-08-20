@@ -5,11 +5,12 @@ create table fleetstate (
   isRegistered boolean not null,
   isVoiceEnabled boolean not null,
   motd text not null,
-  serial_id bigserial primary key
+  serial_id bigserial primary key,
+  owner bigint references users (id) not null
 );
 
 create index if not exists fleetstate_id on fleetstate (id);
-create index if not exists fleetstate_recorded on fleetstate (recorded);
+create index if not exists fleetstate_recorded on fleetstate (recorded, owner);
 
 create table characters (
   id bigint primary key,
