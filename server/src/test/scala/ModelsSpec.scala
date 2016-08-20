@@ -3,10 +3,12 @@ import scalaz._, Scalaz._
 import scalaz.concurrent.Task
 import doobie.contrib.specs2.analysisspec.AnalysisSpec
 import org.specs2.mutable.Specification
+import java.time.Instant
 
 import eveapi._
 import models._
 import oauth._
+import eveapi.compress.CompressedFleet
 
 object UserSpec extends Specification with AnalysisSpec {
   val transactor = DriverManagerTransactor[Task](buildInfo.BuildInfo.flywayDriver, buildInfo.BuildInfo.flywayUrl + "test", buildInfo.BuildInfo.flywayUser, buildInfo.BuildInfo.flywayPassword)
@@ -24,4 +26,5 @@ object UserSpec extends Specification with AnalysisSpec {
   check(FleetHistory.selectMembers)
   check(FleetHistory.selectWings)
   check(FleetHistory.selectFleets)
+  check(FleetHistory.fleetInsertQuery(CompressedFleet(0, false, false, false, ""), Instant.now))
 }

@@ -1,4 +1,4 @@
-create table fleetstatus (
+create table fleetstate (
   id bigint not null,
   recorded timestamp not null,
   isFreeMove boolean not null,
@@ -8,8 +8,8 @@ create table fleetstatus (
   serial_id bigserial primary key
 );
 
-create index if not exists fleetstatus_id on fleetstatus (id);
-create index if not exists fleetstatus_recorded on fleetstatus (recorded);
+create index if not exists fleetstate_id on fleetstate (id);
+create index if not exists fleetstate_recorded on fleetstate (recorded);
 
 create table characters (
   id bigint primary key,
@@ -32,7 +32,7 @@ create table ships (
 );
 
 create table memberstatus (
-  parentstatus bigint references fleetstatus not null,
+  parentstatus bigint references fleetstate not null,
   boosterId smallint not null,
   joinTime timestamp not null,
   roleId smallint not null,
@@ -46,7 +46,7 @@ create table memberstatus (
 );
 
 create table wingstatus (
-  parentstatus bigint references fleetstatus not null,
+  parentstatus bigint references fleetstate not null,
   id bigint not null,
   name text not null,
   unique (parentstatus, id)

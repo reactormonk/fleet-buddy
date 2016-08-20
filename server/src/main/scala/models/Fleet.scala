@@ -32,7 +32,7 @@ object FleetHistory {
 insert into fleetstate
   (isFreeMove, isRegistered, isVoiceEnabled, motd, recorded)
 values
-  (${s.isFreeMove}, ${s.isRegistered}, ${s.isVoiceEnabled}, ${s.motd}, recorded)
+  (${s.isFreeMove}, ${s.isRegistered}, ${s.isVoiceEnabled}, ${s.motd}, ${recorded})
 """.update
   }
 
@@ -170,7 +170,7 @@ select
   isRegistered,
   isVoiceEnabled,
   motd
-from fleetstatus
+from fleetstate
 where id = ?
 and recorded between ? and ?
 """)
