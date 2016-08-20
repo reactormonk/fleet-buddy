@@ -9,9 +9,9 @@ type CssClasses
     = Form
 
 
-
--- type CssIds
---     = Page
+type CssIds
+    = FleetFeed
+    | FleetShipOverview
 
 
 css : Stylesheet
@@ -23,5 +23,12 @@ css =
                 ]
             , (.) Form
                 [ marginTop (px 100)
+                ]
+            , (#) FleetFeed
+                [ backgroundColor (rgb 175 175 175)
+                , margin (px 10)
+                ]
+            , (#) FleetShipOverview
+                [ margin (px 10)
                 ]
             ]

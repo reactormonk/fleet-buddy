@@ -12,6 +12,8 @@ import Json.Decode exposing (decodeString)
 import Json.Encode exposing (encode)
 import Result.Extra exposing (mapBoth)
 import RouteUrl.Builder exposing (..)
+import Html.CssHelpers
+import Style exposing (..)
 
 
 type alias FleetInit =
@@ -41,6 +43,8 @@ type Action
     | InvalidMessage String
 
 
+{ id, class, classList } =
+    Html.CssHelpers.withNamespace ""
 init : FleetInit -> Model
 init struct =
     { id = struct.id, data = Nothing, socket = fleetSocket struct, running = True }
@@ -118,10 +122,10 @@ shipTextTemplate =
 renderShip : { a | id : String, name : String } -> Int -> Html Action
 renderShip ship count =
     div [ classList [ ( "ui", True ), ( "card", True ) ] ]
-        [ div [ class "image" ]
+        [ div [ class [ "image" ] ]
             [ img [ src (render shipImageTemplate ship) ] []
-            , div [ class "content" ]
-                [ div [ class "header" ] [ text (render shipTextTemplate { name = ship.name, count = toString count }) ] ]
+            , div [ class [ "content" ] ]
+                [ div [ class [ "header" ] ] [ text (render shipTextTemplate { name = ship.name, count = toString count }) ] ]
             ]
         ]
 
@@ -130,12 +134,12 @@ renderEvent' : Maybe { a | id : String, name : String } -> List (Html Action) ->
 renderEvent' character summary =
     case character of
         Just char ->
-            [ div [ class "label" ] [ img [ src (render characterImageTemplate char) ] [] ]
-            , div [ class "content" ] [ div [ class "summary" ] <| [ text char.name ] ++ summary ]
+            [ div [ class [ "label" ] ] [ img [ src (render characterImageTemplate char) ] [] ]
+            , div [ class [ "content" ] ] [ div [ class [ "summary" ] ] <| [ text char.name ] ++ summary ]
             ]
 
         Nothing ->
-            [ div [ class "content" ] [ div [ class "summary" ] summary ] ]
+            [ div [ class [ "content" ] ] [ div [ class [ "summary" ] ] summary ] ]
 
 
 renderChange : Bool -> String
@@ -251,7 +255,7 @@ renderEvent event =
                 FleetEventWingMove move ->
                     renderEvent' (Just move.id) <| list <| text <| " moved from Wing " ++ move.old.name ++ " to Wing " ++ move.now.name
     in
-        div [ class "event" ] inner
+        div [ class [ "event" ] ] inner
 
 
 view : Model -> Html Action
@@ -270,13 +274,13 @@ view model =
                                 |> List.reverse
                                 |> List.map (\( ( id, name ), cnt ) -> renderShip { id = id, name = name } cnt)
                     in
-                        div [ classList [ ( "ui", True ), ( "container", True ) ] ]
-                            [ div [ classList [ ( "ui", True ), ( "two", True ), ( "column", True ), ( "grid", True ) ] ]
-                                [ div [ classList [ ( "ten", True ), ( "wide", True ), ( "column", True ) ] ]
-                                    [ div [ classList [ ( "ui", True ), ( "cards", True ) ] ] countedShips
+                        div [ class [ "ui", "container" ], style [ ( "height", "100%" ) ] ]
+                            [ div [ class [ "ui", "two", "column", "grid" ] ]
+                                [ div [ class [ "ten", "wide", "column" ] ]
+                                    [ div [ class [ "ui", "cards" ], id FleetShipOverview ] countedShips
                                     ]
-                                , div [ classList [ ( "five", True ), ( "wide", True ), ( "column", True ) ] ]
-                                    [ div [ classList [ ( "ui", True ), ( "feed", True ) ] ] <|
+                                , div [ class [ "five", "wide", "column" ], id FleetFeed ]
+                                    [ div [ class [ "ui", "feed" ] ] <|
                                         List.map renderEvent data.events
                                     ]
                                 ]
