@@ -313,7 +313,7 @@ fleetSocket struct =
             proto
                 ++ "://"
                 ++ struct.host
-                ++ "/fleet-ws/"
+                ++ "/api/fleet-ws/"
                 ++ struct.id
 
 
