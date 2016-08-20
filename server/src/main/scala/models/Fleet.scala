@@ -91,7 +91,7 @@ on conflict do nothing
       _ <- stationSql.updateMany(s.members.flatMap(_.station))
       _ <- solarSystemSql.updateMany(s.members.map(_.solarSystem))
       _ <- shipSql.updateMany(s.members.map(_.ship))
-      id <- fleetInsertQuery(owner, s.fleet, s.now).withUniqueGeneratedKeys[Long]("id")
+      id <- fleetInsertQuery(owner, s.fleet, s.now).withUniqueGeneratedKeys[Long]("serial_id")
       _ <- wingStatusSql.updateMany(s.wings.map(w => (id, w.wingId, w.name)))
       _ <- squadStatusSql.updateMany(s.wings.flatMap(w => w.squadsList.map(s => (id, w.wingId, s.squadId, s.name))))
       _ <- memberStatusSql.updateMany(
