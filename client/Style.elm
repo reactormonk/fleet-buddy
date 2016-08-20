@@ -12,6 +12,7 @@ type CssClasses
 type CssIds
     = FleetFeed
     | FleetShipOverview
+    | FleetViewContainer
 
 
 css : Stylesheet
@@ -19,16 +20,15 @@ css =
     stylesheet <|
         (namespace "")
             [ body
-                [ backgroundColor (rgb 150 150 150)
-                ]
+                []
             , (.) Form
-                [ marginTop (px 100)
+                [ marginTop (em 10)
+                ]
+            , (#) FleetViewContainer
+                [ margin (em 1)
                 ]
             , (#) FleetFeed
-                [ backgroundColor (rgb 175 175 175)
-                , margin (px 10)
-                ]
+                []
             , (#) FleetShipOverview
-                [ margin (px 10)
-                ]
+                []
             ]

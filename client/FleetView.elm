@@ -125,7 +125,10 @@ renderShip ship count =
         [ div [ class [ "image" ] ]
             [ img [ src (render shipImageTemplate ship) ] []
             , div [ class [ "content" ] ]
-                [ div [ class [ "header" ] ] [ text (render shipTextTemplate { name = ship.name, count = toString count }) ] ]
+                [ div [ class [ "header" ] ]
+                    [ h2 [] [ text (render shipTextTemplate { name = ship.name, count = toString count }) ]
+                    ]
+                ]
             ]
         ]
 
@@ -274,13 +277,17 @@ view model =
                                 |> List.reverse
                                 |> List.map (\( ( id, name ), cnt ) -> renderShip { id = id, name = name } cnt)
                     in
-                        div [ class [ "ui", "container" ], style [ ( "height", "100%" ) ] ]
+                        div [ id FleetViewContainer ]
                             [ div [ class [ "ui", "two", "column", "grid" ] ]
-                                [ div [ class [ "ten", "wide", "column" ] ]
-                                    [ div [ class [ "ui", "cards" ], id FleetShipOverview ] countedShips
+                                [ div [ class [ "eleven", "wide", "column" ], id FleetShipOverview ]
+                                    [ h1 [ class [ "ui", "dividing", "header" ] ] [ text "Ships" ]
+                                    , div
+                                        [ class [ "ui", "cards" ] ]
+                                        countedShips
                                     ]
                                 , div [ class [ "five", "wide", "column" ], id FleetFeed ]
-                                    [ div [ class [ "ui", "feed" ] ] <|
+                                    [ h1 [ class [ "ui", "dividing", "header" ] ] [ text "Feed" ]
+                                    , div [ class [ "ui", "feed" ] ] <|
                                         List.map renderEvent data.events
                                     ]
                                 ]
