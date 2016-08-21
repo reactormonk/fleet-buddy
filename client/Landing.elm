@@ -43,17 +43,17 @@ update msg model =
 
 view : Model -> Html.Html Action
 view model =
-    div [ classList [ ( "ui", True ), ( "middle", True ), ( "aligned", True ), ( "center", True ), ( "aligned", True ), ( "grid", True ) ] ]
+    div [ class [ "ui", "middle", "aligned", "center", "aligned", "grid" ] ]
         [ div
             [ class [ Style.Form ] ]
             [ Html.form
-                [ classList [ ( "form", True ), ( "large", True ), ( "ui", True ) ], onSubmit FleetUrlSubmit ]
+                [ class [ "form", "large", "ui" ], onSubmit FleetUrlSubmit ]
                 [ div
-                    [ classList [ ( "field", True ), ( "stacked", True ), ( "segment", True ) ] ]
+                    [ class [ "field", "stacked", "segment" ] ]
                     [ label [] [ Html.text "Fleet URL" ]
                     , input [ type' "text", placeholder "https://crest-tq.eveonline.com/fleets/00000000000/", onInput EnteredFleetUrl, style [ ( "width", "27em" ) ] ] []
                     ]
-                , button [ classList [ ( "ui", True ), ( "button", True ) ], type' "submit", viewValidation model ] [ Html.text "Go!" ]
+                , button [ class [ "ui", "button" ], type' "submit", viewValidation model ] [ Html.text "Go!" ]
                 ]
             ]
         ]
