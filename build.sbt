@@ -50,17 +50,13 @@ lazy val server = (project in file("server")).settings(
   .settings(globalSettings: _*)
   .settings(DB.settings: _*)
   .settings(
-    aggregate in flywayMigrate := false
-  , aggregate in flywayClean := false
-  , flywayUrl in Test := { flywayUrl.value + "test" }
-  , flywayDriver in Test := flywayDriver.value
-  , flywayUser in Test := flywayUser.value
-  , flywayPassword in Test := flywayPassword.value
-  , test := Def.sequential(
-      flywayClean in Test,
-      flywayMigrate in Test,
-      test in Test
-    ).value
+      test := Def.sequential(
+        flywayClean in (flyway, Test),
+        flywayMigrate in (flyway, Test),
+        test in Test
+      ).value
+    , flywayClean := flywayClean in flyway
+    , flywayMigrate := flywayMigrate in flyway
 )
   .enablePlugins(BuildInfoPlugin)
   .settings(
@@ -86,6 +82,15 @@ lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared"))
     )
   )
   .settings(globalSettings: _*)
+
+lazy val flyway = (project in file("flyway"))
+  .settings(
+    flywayUrl in Test := { flywayUrl.value + "test" }
+  , flywayDriver in Test := flywayDriver.value
+  , flywayUser in Test := flywayUser.value
+  , flywayPassword in Test := flywayPassword.value
+)
+  .settings(DB.settings: _*)
 
 
 lazy val sharedJvm = shared.jvm
