@@ -13,6 +13,7 @@ lazy val globalSettings = Seq(
 )
 
 val eveapiVersion = "0.1-SNAPSHOT"
+val doobieVersion = "0.3.0-M1"
 
 scalaVersion := scalaV
 
@@ -38,7 +39,7 @@ lazy val server = (project in file("server")).settings(
       "org.tpolecat" %% "doobie-core"
     , "org.tpolecat" %% "doobie-contrib-postgresql"
     , "org.tpolecat" %% "doobie-contrib-specs2"
-  ).map(_ % "0.3.0-M1") ++ Seq(
+  ).map(_ % doobieVersion) ++ Seq(
       "eveapi" %% "blazeargonautapi"
     , "eveapi" %% "compress"
   ).map(_ % eveapiVersion) ++ Seq(
@@ -100,6 +101,8 @@ lazy val flyway = (project in file("flyway"))
   , flywayDriver in Test := flywayDriver.value
   , flywayUser in Test := flywayUser.value
   , flywayPassword in Test := flywayPassword.value
+  , scalaVersion := scalaV
+  , libraryDependencies += "org.tpolecat" %% "doobie-contrib-postgresql" % doobieVersion
 )
   .settings(DB.settings: _*)
 
