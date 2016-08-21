@@ -72,6 +72,17 @@ lazy val server = (project in file("server")).settings(
     , file("client/index.html")
     )
 )
+  .enablePlugins(DebianPlugin, SystemdPlugin)
+  .settings(
+      daemonUser in Linux := "fleetbuddy"
+    , name in Linux := "fleet-buddy"
+    , maintainer in Linux := "Simon Hafner <reactormonk@gmail.com>"
+    , packageSummary in Linux := "Fleetbuddy. Your friendly fleet helper."
+    , javaOptions in Universal ++= Seq(
+      "-J-Xmx950M",
+      "-Dplay.server.pidfile.path=/dev/null" // systemd handles that
+    )
+)
 
 lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared"))
   .settings(
