@@ -145,7 +145,7 @@ changed=$(debsums -ce fleetbuddy 2>/dev/null || echo "")
 generateDB() {
     if test -z changed; then
         pw=$(pwgen 40)
-        if sudo -u postgres psql -u postgres << "
+        if sudo -u postgres psql -U postgres < "
 create user fleetbuddy with password '$pw';
 create database fleetbuddy;
 grant all privileges on database 'fleetbuddy' to fleetbuddy;
