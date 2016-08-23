@@ -1,5 +1,4 @@
 #!/bin/sh
-set -e
 # #######################################
 # ## SBT Native Packager Bash Library  ##
 # #######################################
@@ -149,7 +148,7 @@ generateDB() {
 create user fleetbuddy with password '$pw';
 create database fleetbuddy;
 grant all privileges on database \"fleetbuddy\" to fleetbuddy;
-" | sudo -u postgres psql -U postgres
+" | sudo -u postgres psql -U postgres -v ON_ERROR_STOP=1
         if test 0 -eq $? ; then
             echo "database fleetbuddy created."
         else
