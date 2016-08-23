@@ -180,5 +180,6 @@ addService fleetbuddy || echo "fleetbuddy could not be registered"
 generateSecret
 generateDB
 upgradeDB
+chown fleetbuddy:nogroup /etc/fleetbuddy/application.conf
 
 echo "Go to https://developers.eveonline.com/applications create a new application, and add client id, secret key, and callback url to /etc/fleetbuddy/application.conf then start it via (sudo) systemctl start fleetbuddy."

@@ -86,7 +86,6 @@ lazy val server = (project in file("server")).settings(
         if (linuxPackage.mappings.exists(_._2 == "etc/fleetbuddy/application.conf")) {
           linuxPackage.copy(
             fileData = linuxPackage.fileData.copy(
-              user = "fleetbuddy",
               permissions = "600"
             )
           )
