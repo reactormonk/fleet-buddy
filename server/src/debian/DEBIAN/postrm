@@ -1,0 +1,6 @@
+if test "$1" = "purge"; then
+    echo "
+drop database fleetbuddy;
+drop user fleetbuddy;
+" | sudo -u postgres psql -U postgres
+fi
