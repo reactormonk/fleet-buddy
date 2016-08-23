@@ -3,8 +3,7 @@ package controllers
 import eveapi.errors.EveApiError
 import org.atnos.eff._, org.atnos.eff.syntax.all._, org.atnos.eff.all._
 import java.time.Clock
-import knobs.{ CfgText, Configured }
-import knobs.{Required, ClassPathResource, Config}
+import knobs.{Required, FileResource, Config, CfgText, Configured}
 import scala.concurrent.duration.Duration
 import scalaz._, Scalaz._
 import scalaz.concurrent.Task
@@ -104,27 +103,37 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
   val server = builder.bindHttp(port, host)
 }
 
+
+case class DBConfig(url: String, user: String, password: String, driver: String = "org.postgresql.Driver")
+
 object Loader extends ServerApp {
   implicit val configuredUri = Configured[String].flatMap(s => Configured(_ => Uri.fromString(s).toOption))
-  val xa = DriverManagerTransactor[Task](buildInfo.BuildInfo.flywayDriver, buildInfo.BuildInfo.flywayUrl, buildInfo.BuildInfo.flywayUser, buildInfo.BuildInfo.flywayPassword)
   def server(args: List[String]): Task[Server] = {
     buddy.map(_.server.run)
   }
 
+  val load = knobs.loadImmutable(Required(FileResource(sys.Prop[java.io.File]("configfile").option.getOrElse(new java.io.File("application.conf")))):: Nil)
+
+  def db(load: Config): DBConfig = {
+    DBConfig(
+      load.require[String]("db.url"),
+      load.require[String]("db.user"),
+      load.require[String]("db.password")
+    )
+  }
+
   def buddy: Task[FleetBuddy] = {
-    val config = knobs.loadImmutable(Required(ClassPathResource("application.conf")) :: Required(ClassPathResource("secrets.conf")) :: Nil)
     for {
-      cfg <- config
+      cfg <- load
       clientId = cfg.require[String]("eveonline.clientID")
       clientSecret = cfg.require[String]("eveonline.clientSecret")
-      key = cfg.require[String]("secret")
-      host = cfg.lookup[String]("host")
-      port = cfg.lookup[Int]("port")
+      key = cfg.require[String]("app-secret")
+      host = cfg.lookup[String]("host").getOrElse("localhost")
+      port = cfg.lookup[Int]("port").getOrElse(9000)
       callback = cfg.require[Uri]("eveonline.callback")
       pollInterval = cfg.require[Duration]("poll-interval")
+      dbcfg = db(cfg)
     } yield {
-      val h = host.getOrElse("localhost")
-      val p = port.getOrElse(9000)
       val secret = PrivateKey(scala.io.Codec.toUTF8(key))
       FleetBuddy(
         OAuth2Settings(
@@ -136,7 +145,7 @@ object Loader extends ServerApp {
           clientSecret,
           uri("https://login.eveonline.com/oauth/token"),
           Some("fleetRead fleetWrite")
-        ), h, p, secret, pollInterval, xa,
+        ), host, port, secret, pollInterval, DriverManagerTransactor[Task](dbcfg.driver, dbcfg.url, dbcfg.user, dbcfg.password),
         EveServer(Uri.RegName("crest-tq.eveonline.com")) // TODO parameterize this
       )
     }

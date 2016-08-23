@@ -13,7 +13,7 @@ lazy val globalSettings = Seq(
 )
 
 val eveapiVersion = "0.1-SNAPSHOT"
-val doobieVersion = "0.3.0-M1"
+val doobieVersion = "0.3.0"
 
 scalaVersion := scalaV
 
@@ -30,6 +30,7 @@ lazy val server = (project in file("server")).settings(
     , "org.scalacheck" %% "scalacheck" % "1.13.0" % Test
     , "org.reactormonk" %% "counter" % "1.3.3"
     , "org.typelevel" %% "shapeless-scalaz" % "0.4"
+    , "org.flywaydb" % "flyway-core" % "4.0.1"
   ) ++ Seq(
       "org.http4s" %% "http4s-core"
     , "org.http4s" %% "http4s-dsl"
@@ -49,21 +50,6 @@ lazy val server = (project in file("server")).settings(
 )
   .dependsOn(sharedJvm)
   .settings(globalSettings: _*)
-  .settings(DB.settings: _*)
-  .settings(
-      test := Def.sequential(
-        flywayClean in (flyway, Test),
-        flywayMigrate in (flyway, Test),
-        test in Test
-      ).value
-    , flywayClean := flywayClean in flyway
-    , flywayMigrate := flywayMigrate in flyway
-)
-  .enablePlugins(BuildInfoPlugin)
-  .settings(
-    buildInfoKeys := Seq[BuildInfoKey](flywayUrl, flywayDriver, flywayUser, flywayPassword)
-  , buildInfoPackage := "buildInfo"
-)
   .settings(
     (managedResources in Compile) ++= Seq(
       (compileElm in client).value
@@ -73,21 +59,61 @@ lazy val server = (project in file("server")).settings(
     , file("client/index.html")
     )
 )
-  .enablePlugins(DebianPlugin, SystemdPlugin)
+  .enablePlugins(JavaServerAppPackaging, DebianPlugin, SystemdPlugin)
   .settings(
       daemonUser in Linux := "fleetbuddy"
-    , name in Linux := "fleet-buddy"
+    , name in Linux := "fleetbuddy"
+    , packageName in Linux := "fleetbuddy"
     , maintainer in Linux := "Simon Hafner <reactormonk@gmail.com>"
     , packageSummary in Linux := "Fleetbuddy. Your friendly fleet helper."
+    , executableScriptName := "fleetbuddy"
     , javaOptions in Universal ++= Seq(
-      "-J-Xmx950M",
-      "-Dplay.server.pidfile.path=/dev/null" // systemd handles that
+        "-J-Xmx950M"
+      , "-Dconfigfile=/etc/fleetbuddy/application.conf"
     )
+    , debianPackageDependencies in Debian ++= Seq(
+        "openjdk-8-jre"
+      , "postgresql"
+      , "pwgen"
+      , "debsums"
+    )
+    , linuxPackageMappings := {
+      linuxPackageMappings.value.map({ linuxPackage =>
+        if (linuxPackage.mappings.exists(_._2 == "etc/fleetbuddy/application.conf")) {
+          linuxPackage.copy(
+            fileData = linuxPackage.fileData.copy(
+              user = "fleetbuddy",
+              permissions = "600"
+            )
+          )
+        } else { linuxPackage }
+      })
+    }
+)
+  .settings(
+    test := Def.sequential(
+      flywayClean in (flyway, Test),
+      flywayMigrate in (flyway, Test),
+      test in Test
+    ).value
+      , flywayClean := flywayClean in flyway
+      , flywayMigrate := flywayMigrate in flyway
+)
+  .enablePlugins(BuildInfoPlugin)
+  .settings(
+      buildInfoKeys := Seq[BuildInfoKey](flywayUrl, flywayDriver, flywayUser, flywayPassword)
+    , buildInfoPackage := "buildInfo"
+)
+  .settings(ApplicationConf.settings: _*)
+  .settings((unmanagedResourceDirectories in Compile) += (resourceDirectory in (flyway, Compile)).value)
+  .settings(
+    mainClass in Compile := Some("controllers.Loader")
 )
 
 lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared"))
   .settings(
     scalaVersion := scalaV,
+
     libraryDependencies ++= Seq(
       "eveapi" %% "compress" % eveapiVersion,
       "org.reactormonk" %% "elmtypes" % "0.2"
@@ -95,7 +121,7 @@ lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared"))
   )
   .settings(globalSettings: _*)
 
-lazy val flyway = (project in file("flyway"))
+lazy val flyway = (project in file("."))
   .settings(
     flywayUrl in Test := { flywayUrl.value + "test" }
   , flywayDriver in Test := flywayDriver.value
@@ -104,7 +130,7 @@ lazy val flyway = (project in file("flyway"))
   , scalaVersion := scalaV
   , libraryDependencies += "org.tpolecat" %% "doobie-contrib-postgresql" % doobieVersion
 )
-  .settings(DB.settings: _*)
+  .settings(ApplicationConf.settings: _*)
 
 
 lazy val sharedJvm = shared.jvm
