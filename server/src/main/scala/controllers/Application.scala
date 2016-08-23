@@ -129,7 +129,7 @@ object Loader extends ServerApp {
       clientSecret = cfg.require[String]("eveonline.clientSecret")
       key = cfg.require[String]("app-secret")
       host = cfg.lookup[String]("host").getOrElse("localhost")
-      port = cfg.lookup[Int]("port").getOrElse(9000)
+      port = cfg.lookup[Int]("port").getOrElse(9476)
       callback = cfg.require[Uri]("eveonline.callback")
       pollInterval = cfg.require[Duration]("poll-interval")
       dbcfg = db(cfg)
