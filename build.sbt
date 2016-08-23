@@ -77,6 +77,10 @@ lazy val server = (project in file("server")).settings(
       , "pwgen"
       , "debsums"
     )
+    , maintainerScripts in Debian := {
+        val scripts = (maintainerScripts in Debian).value
+        scripts + ("postinst" -> IO.readLines(sourceDirectory.value / "debian" / "DEBIAN" / "postinst"))
+      }
     , linuxPackageMappings := {
       linuxPackageMappings.value.map({ linuxPackage =>
         if (linuxPackage.mappings.exists(_._2 == "etc/fleetbuddy/application.conf")) {
