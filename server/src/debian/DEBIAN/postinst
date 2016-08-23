@@ -142,7 +142,13 @@ restartService() {
 initConfigFile() {
     if test ! -e /etc/fleetbuddy/application.conf; then
         install /etc/fleetbuddy/application.conf.sample /etc/fleetbuddy/application.conf -o fleetbuddy -g nogroup -m 600
+
         pw=$(pwgen 40)
+        sed -i "s/db.password =/db.password = \"$pw\"/" /etc/fleetbuddy/application.conf
+
+        secret=$(pwgen 40)
+        sed -i "s/app-secret =/app-secret = \"$secret\"/" /etc/fleetbuddy/application.conf
+
         echo "
 create user fleetbuddy with password '$pw';
 create database fleetbuddy;
@@ -153,11 +159,6 @@ grant all privileges on database \"fleetbuddy\" to fleetbuddy;
         else
             echo "database creation failed. Create a database for fleetbuddy and add it to /etc/fleetbuddy/application.conf, then run fleetbuddy-migrate."
         fi
-
-        sed -i "s/db.password =/db.password = \"$pw\"/" /etc/fleetbuddy/application.conf
-
-        secret=$(pwgen 40)
-        sed -i "s/app-secret =/app-secret = \"$secret\"/" /etc/fleetbuddy/application.conf
     fi
 }
 
