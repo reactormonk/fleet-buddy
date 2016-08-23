@@ -1,9 +1,13 @@
 # fleet-buddy
 Eve Online fleet buddy based on the CREST API
 
-# Install
-Rename `project/secrets.scala.example` and change it as needed.
-Same with `server/src/main/resources/secrets.conf.example`
+# Development
+```bash
+cp ./server/src/linux/etc/fleetbuddy/application.conf.sample application.conf
+```
+
+And fill in the values, according to `server/src/debian/DEBIAN/postinst`
+initConfigFile. Don't forget to run the postgresql commands too.
 
 # semantic ui setup
 
@@ -11,12 +15,24 @@ Same with `server/src/main/resources/secrets.conf.example`
 cd client
 npm install semantic-ui --save
 cd semantic
-gulp build
+../node_modules/.bin/gulp build
 ```
 
-# css setup
+# elm / css setup
+
+Either install via `-g` or do some `PATH` magic so sbt finds the binaries.
 
 ```bash
 cd client
+npm install elm
 npm install elm-css
 ```
+
+# Production install
+```bash
+sbt debian:packageBin
+```
+
+Configure ssl via let's encrypt, with a forwarder of your choice. The
+application runs on port `9476` by default, which can be changed via `port =
+6402` in the `application.conf`.
