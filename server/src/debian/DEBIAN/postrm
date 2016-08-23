@@ -3,4 +3,6 @@ if test "$1" = "purge"; then
 drop database fleetbuddy;
 drop user fleetbuddy;
 " | sudo -u postgres psql -U postgres
+    rm /etc/fleetbuddy/application.conf
+    rmdir /etc/fleetbuddy
 fi

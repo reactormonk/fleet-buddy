@@ -81,17 +81,6 @@ lazy val server = (project in file("server")).settings(
         val scripts = (maintainerScripts in Debian).value
         scripts + ("postinst" -> IO.readLines(sourceDirectory.value / "debian" / "DEBIAN" / "postinst"))
       }
-    , linuxPackageMappings := {
-      linuxPackageMappings.value.map({ linuxPackage =>
-        if (linuxPackage.mappings.exists(_._2 == "etc/fleetbuddy/application.conf")) {
-          linuxPackage.copy(
-            fileData = linuxPackage.fileData.copy(
-              permissions = "600"
-            )
-          )
-        } else { linuxPackage }
-      })
-    }
 )
   .settings(
     test := Def.sequential(

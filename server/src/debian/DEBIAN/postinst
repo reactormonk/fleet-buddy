@@ -139,10 +139,9 @@ restartService() {
 # Generate the initial db and set up the password.
 #
 
-changed=$(debsums -ce fleetbuddy 2>/dev/null || echo "")
-
-generateDB() {
-    if test -z "$changed"; then
+initConfigFile() {
+    if test ! -e /etc/fleetbuddy/application.conf; then
+        install /etc/fleetbuddy/application.conf.sample /etc/fleetbuddy/application.conf -o fleetbuddy -g nogroup -m 600
         pw=$(pwgen 40)
         echo "
 create user fleetbuddy with password '$pw';
@@ -156,6 +155,9 @@ grant all privileges on database \"fleetbuddy\" to fleetbuddy;
         fi
 
         sed -i "s/db.password =/db.password = \"$pw\"/" /etc/fleetbuddy/application.conf
+
+        secret=$(pwgen 40)
+        sed -i "s/app-secret =/app-secret = \"$secret\"/" /etc/fleetbuddy/application.conf
     fi
 }
 
@@ -168,18 +170,9 @@ upgradeDB() {
     fi
 }
 
-generateSecret() {
-    if test -z "$changed"; then
-        pw=$(pwgen 40)
-        sed -i "s/app-secret =/app-secret = \"$pw\"/" /etc/fleetbuddy/application.conf
-    fi
-}
-
 
 addService fleetbuddy || echo "fleetbuddy could not be registered"
-generateSecret
-generateDB
+initConfigFile
 upgradeDB
-chown fleetbuddy:nogroup /etc/fleetbuddy/application.conf
 
 echo "Go to https://developers.eveonline.com/applications create a new application, and add client id, secret key, and callback url to /etc/fleetbuddy/application.conf then start it via (sudo) systemctl start fleetbuddy."
