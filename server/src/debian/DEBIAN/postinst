@@ -140,8 +140,9 @@ restartService() {
 # Generate the initial db and set up the password.
 #
 
+changed=$(debsums -ce fleetbuddy 2>/dev/null || echo "")
+
 generateDB() {
-    changed=$(debsums -ce fleetbuddy || echo "")
     if test -z changed; then
         pw=$(pwgen 40)
         sudo -u postgres psql -u postgres < "
@@ -163,7 +164,7 @@ upgradeDB() {
 }
 
 generateSecret() {
-    if test -z $( debsums -ce fleetbuddy ); then
+    if test -z changed; then
         pw=$(pwgen 40)
         sed -i "s/app-secret =/app-secret = $pw/" /etc/fleetbuddy/application.conf
     fi
