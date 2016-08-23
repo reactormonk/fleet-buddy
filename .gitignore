@@ -3,6 +3,7 @@
 secrets.conf
 secrets.scala
 prototype.py
+application.conf
 
 # sbt specific
 .cache
