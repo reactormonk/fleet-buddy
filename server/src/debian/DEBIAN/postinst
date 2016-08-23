@@ -143,7 +143,7 @@ restartService() {
 changed=$(debsums -ce fleetbuddy 2>/dev/null || echo "")
 
 generateDB() {
-    if test -z changed; then
+    if test -z "$changed"; then
         pw=$(pwgen 40)
         echo "
 create user fleetbuddy with password '$pw';
@@ -164,13 +164,13 @@ upgradeDB() {
     active=$( systemctl is-active fleetbuddy )
     systemctl stop fleetbuddy
     fleetbuddy-migrate
-    if active; then
+    if test "$active" = "active"; then
         systemctl start fleetbuddy
     fi
 }
 
 generateSecret() {
-    if test -z changed; then
+    if test -z "$changed"; then
         pw=$(pwgen 40)
         sed -i "s/app-secret =/app-secret = $pw/" /etc/fleetbuddy/application.conf
     fi
