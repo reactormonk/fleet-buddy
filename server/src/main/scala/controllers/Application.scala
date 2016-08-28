@@ -14,6 +14,7 @@ import org.http4s.server.blaze._
 import doobie.imports._
 import org.log4s.getLogger
 import shared.FleetState
+import org.reactormonk.PrivateKey
 
 import utils._
 import oauth._

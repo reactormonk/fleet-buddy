@@ -31,6 +31,7 @@ lazy val server = (project in file("server")).settings(
     , "org.reactormonk" %% "counter" % "1.3.3"
     , "org.typelevel" %% "shapeless-scalaz" % "0.4"
     , "org.flywaydb" % "flyway-core" % "4.0.1"
+    , "org.reactormonk" %% "cryptobits" % "1.0"
   ) ++ Seq(
       "org.http4s" %% "http4s-core"
     , "org.http4s" %% "http4s-dsl"
