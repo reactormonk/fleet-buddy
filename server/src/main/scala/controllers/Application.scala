@@ -70,8 +70,8 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
   val authed: Kleisli[Task, (User, Request), Response] = Kleisli({ case (user, request) => request match {
     case GET -> Root / path if List(".js", ".css", ".map", ".html").exists(path.endsWith) =>
       static(path, request)
-    case GET -> Root / "api" / "fleet-ws" / fleetId => {
-      val topic = topics(user, fleetId.toLong)
+    case GET -> Root / "api" / "fleet-ws" / LongVar(fleetId) => {
+      val topic = topics(user, fleetId)
       val toDB = dbs(user, topic.subscribe.collect({case \/-(s) => s}))
       Task.fork(toDB.run).unsafePerformAsync(_.fold({err =>
         logger.error(s"Error from DB: $err")
