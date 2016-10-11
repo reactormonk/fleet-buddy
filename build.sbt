@@ -59,6 +59,7 @@ lazy val server = (project in file("server")).settings(
     , file("client/semantic/dist/semantic.min.js")
     , file("client/index.html")
     )
+  , (unmanagedResourceDirectories in Compile) += file("client/resources")
 )
   .enablePlugins(JavaServerAppPackaging, DebianPlugin, SystemdPlugin)
   .settings(

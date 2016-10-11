@@ -55,6 +55,12 @@ view model =
                     ]
                 , button [ class [ "ui", "button" ], type' "submit", viewValidation model ] [ Html.text "Go!" ]
                 ]
+            , div [ class [ "ui", "hidden", "divider" ] ] []
+            , div [ class [ "video" ] ]
+                [ video [ autoplay True, loop True ]
+                    [ source [ src "/fleet.webm", type' "video/webm" ] []
+                    ]
+                ]
             ]
         ]
 
