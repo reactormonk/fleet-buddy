@@ -126,7 +126,7 @@ renderShip ship count =
             [ img [ src (render shipImageTemplate ship) ] []
             , div [ class [ "content" ] ]
                 [ div [ class [ "header" ] ]
-                    [ h2 [] [ text (render shipTextTemplate { name = ship.name, count = toString count }) ]
+                    [ h3 [] [ text (render shipTextTemplate { name = ship.name, count = toString count }) ]
                     ]
                 ]
             ]
@@ -282,7 +282,7 @@ view model =
                                 [ div [ class [ "eleven", "wide", "column" ], id FleetShipOverview ]
                                     [ h1 [ class [ "ui", "dividing", "header" ] ] [ text "Ships" ]
                                     , div
-                                        [ class [ "ui", "cards" ] ]
+                                        [ class [ "ui", "six", "column", "cards" ] ]
                                         countedShips
                                     ]
                                 , div [ class [ "five", "wide", "column" ], id FleetFeed ]
