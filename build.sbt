@@ -37,7 +37,7 @@ lazy val server = (project in file("server")).settings(
     , "org.http4s" %% "http4s-dsl"
     , "org.http4s" %% "http4s-blaze-server"
     , "org.http4s" %% "http4s-blaze-client"
-  ).map(_ % "0.14.2a") ++ Seq(
+  ).map(_ % "0.14.11a") ++ Seq(
       "org.tpolecat" %% "doobie-core"
     , "org.tpolecat" %% "doobie-contrib-postgresql"
     , "org.tpolecat" %% "doobie-contrib-specs2"
