@@ -7,6 +7,7 @@ import Css.Namespace exposing (namespace)
 
 type CssClasses
     = Form
+    | ShipListShip
 
 
 type CssIds

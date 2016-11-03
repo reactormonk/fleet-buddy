@@ -4,6 +4,7 @@ import Maybe exposing (..)
 import Codec exposing (..)
 import List
 import Dict exposing (Dict)
+import Dict.Extra exposing (groupBy)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Template exposing (template, render, withValue, withString)
@@ -78,6 +79,11 @@ insertOrUpdate key fun dict =
     Dict.insert key (fun (Dict.get key dict)) dict
 
 
+extractLocation : CompressedMember -> CompressedLocation
+extractLocation member =
+    { solarSystem = Just member.solarSystem, station = member.station }
+
+
 count : List comparable -> Dict comparable Int
 count list =
     List.foldr
@@ -119,18 +125,39 @@ shipTextTemplate =
         |> withValue .name
 
 
-renderShip : { a | id : String, name : String } -> Int -> Html Action
-renderShip ship count =
-    div [ classList [ ( "ui", True ), ( "card", True ) ] ]
-        [ div [ class [ "image" ] ]
-            [ img [ src (render shipImageTemplate ship) ] []
-            , div [ class [ "content" ] ]
-                [ div [ class [ "header" ] ]
-                    [ h3 [] [ text (render shipTextTemplate { name = ship.name, count = toString count }) ]
-                    ]
-                ]
+renderCharacterInList : { a | id : String, name : String, location : CompressedLocation } -> Html Action
+renderCharacterInList character =
+    div [ class [ "item" ] ]
+        [ img [ class [ "ui", "image", "mini" ], src (render characterImageTemplate character) ] []
+        , div [ class [ "content" ] ]
+            [ div [ class [ "ui", "sub", "header" ] ]
+                [ text character.name ]
+            , renderLocation character.location
             ]
         ]
+
+
+renderCharacterList : List { a | id : String, name : String, location : CompressedLocation } -> Html Action
+renderCharacterList list =
+    div [ class [ "ui", "horizontal", "list" ] ] <| List.map renderCharacterInList list
+
+
+renderShipListShip : ( { a | id : String, name : String }, Int, List { b | id : String, name : String, location : CompressedLocation } ) -> Html Action
+renderShipListShip ( ship, count, members ) =
+    div [ class [ "item" ] ]
+        [ div [ class [ "image" ] ] [ img [ src (render shipImageTemplate ship), class [ "ui", "image", "small" ] ] [] ]
+        , div [ class [ "content" ] ]
+            [ div
+                [ class [ "header" ] ]
+                [ text (render shipTextTemplate { name = ship.name, count = toString count }) ]
+            , renderCharacterList members
+            ]
+        ]
+
+
+renderShipList : List ( { a | id : String, name : String }, Int, List { b | id : String, name : String, location : CompressedLocation } ) -> Html Action
+renderShipList list =
+    div [ class [ "ui", "list", "relaxed" ] ] <| List.map renderShipListShip list
 
 
 renderEvent' : Maybe { a | id : String, name : String } -> List (Html Action) -> List (Html Action)
@@ -163,27 +190,27 @@ renderSolarSystem solarSystem =
     [ text solarSystem.name ]
 
 
-renderLocation : CompressedLocation -> List (Html Action)
+renderLocation : CompressedLocation -> Html Action
 renderLocation location =
     case ( location.solarSystem, location.station ) of
         ( Just solarSystem, Nothing ) ->
-            [ text solarSystem.name ]
+            text solarSystem.name
 
         ( Just solarSystem, Just station ) ->
-            [ text <| station.name ++ ", " ++ solarSystem.name ]
+            text <| station.name ++ ", " ++ solarSystem.name
 
         ( Nothing, _ ) ->
-            [ text "logged out" ]
+            text "logged out"
 
 
 renderLocationChange : { a | old : CompressedLocation, now : CompressedLocation } -> List (Html Action)
 renderLocationChange change =
     case ( change.old.solarSystem, change.old.station, change.now.solarSystem, change.now.station ) of
         ( Nothing, Nothing, solarSystem, station ) ->
-            [ text " logged in to " ] ++ renderLocation { solarSystem = solarSystem, station = station }
+            [ text " logged in to " ] ++ [ renderLocation { solarSystem = solarSystem, station = station } ]
 
         ( solarSystem, station, Nothing, Nothing ) ->
-            [ text " logged out from " ] ++ renderLocation { solarSystem = solarSystem, station = station }
+            [ text " logged out from " ] ++ [ renderLocation { solarSystem = solarSystem, station = station } ]
 
         ( Just old, Nothing, Just now, Nothing ) ->
             [ text " jumped from " ] ++ renderSolarSystem old ++ [ text " to " ] ++ renderSolarSystem now
@@ -275,15 +302,20 @@ view model =
                                 |> Dict.toList
                                 |> List.sortBy snd
                                 |> List.reverse
-                                |> List.map (\( ( id, name ), cnt ) -> renderShip { id = id, name = name } cnt)
+
+                        membersByShip =
+                            data.state.members
+                                |> List.map (\m -> { name = m.character.name, id = m.character.id, location = (extractLocation m), shipId = m.ship.id })
+                                |> Dict.Extra.groupBy .shipId
+
+                        ships =
+                            List.map (\( ( id, name ), count ) -> ( { id = id, name = name }, count, Maybe.withDefault [] <| Dict.get id membersByShip )) countedShips
                     in
                         div [ id FleetViewContainer ]
                             [ div [ class [ "ui", "two", "column", "grid" ] ]
                                 [ div [ class [ "eleven", "wide", "column" ], id FleetShipOverview ]
                                     [ h1 [ class [ "ui", "dividing", "header" ] ] [ text "Ships" ]
-                                    , div
-                                        [ class [ "ui", "six", "column", "cards" ] ]
-                                        countedShips
+                                    , renderShipList ships
                                     ]
                                 , div [ class [ "five", "wide", "column" ], id FleetFeed ]
                                     [ h1 [ class [ "ui", "dividing", "header" ] ] [ text "Feed" ]

@@ -11,6 +11,8 @@ initConfigFile. Don't forget to run the postgresql commands too.
 
 # semantic ui setup
 
+Currently custom fork for horizontal list fix, replace `npm install` with `git clone git@github.com:reactormonk/Semantic-UI.git semantic`
+
 ```bash
 cd client
 npm install semantic-ui --save
