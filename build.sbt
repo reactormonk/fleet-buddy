@@ -12,12 +12,13 @@ lazy val globalSettings = Seq(
   )
 )
 
+val importStaticData = taskKey[Unit]("Import the static data from postgres-latest.dmp")
 val eveapiVersion = "0.1-SNAPSHOT"
 val doobieVersion = "0.3.0"
 
-scalaVersion := scalaV
+scalaVersion in ThisBuild := scalaV
 
-lazy val server = (project in file("server")).settings(
+lazy val server: Project = (project in file("server")).settings(
   scalaVersion := scalaV,
   pipelineStages := Seq(gzip),
   resolvers += "scalaz-bintray" at "https://dl.bintray.com/scalaz/releases",
@@ -85,13 +86,9 @@ lazy val server = (project in file("server")).settings(
       }
 )
   .settings(
-    test := Def.sequential(
-      flywayClean in (flyway, Test),
-      flywayMigrate in (flyway, Test),
-      test in Test
-    ).value
-      , flywayClean := flywayClean in flyway
-      , flywayMigrate := flywayMigrate in flyway
+      flywayClean := flywayClean in flyway
+    , flywayMigrate := flywayMigrate in flyway
+    , test := Def.sequential(flywayMigrate in (flyway, Test), test in Test).value
 )
   .enablePlugins(BuildInfoPlugin)
   .settings(
@@ -102,6 +99,14 @@ lazy val server = (project in file("server")).settings(
   .settings((unmanagedResourceDirectories in Compile) += (resourceDirectory in (flyway, Compile)).value)
   .settings(
     mainClass in Compile := Some("controllers.Loader")
+)
+  .settings(
+    importStaticData in Test := {
+      runner.value.run(s"StaticDataFromSbt", Attributed.data((fullClasspath in Compile).value), Seq("postgres-latest.dmp", "test"), streams.value.log)
+    },
+    importStaticData := {
+      runner.value.run(s"StaticDataFromSbt", Attributed.data((fullClasspath in Compile).value), Seq("postgres-latest.dmp"), streams.value.log)
+    }
 )
 
 lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared"))
@@ -123,9 +128,12 @@ lazy val flyway = (project in file("."))
   , flywayPassword in Test := flywayPassword.value
   , scalaVersion := scalaV
   , libraryDependencies += "org.tpolecat" %% "doobie-contrib-postgresql" % doobieVersion
+  , flywayBaselineOnMigrate := true
+  , flywayBaselineVersion := "0"
+  , flywayBaselineOnMigrate in Test := true
+  , flywayBaselineVersion in Test := "0"
 )
   .settings(ApplicationConf.settings: _*)
-
 
 lazy val sharedJvm = shared.jvm
 lazy val sharedJs = shared.js

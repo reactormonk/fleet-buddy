@@ -72,25 +72,9 @@ insert into squadstatus
 ) values (?, ?, ?, ?)
 """)
 
-  def idTemplate[T[_]](table: String) = Update[CompressedStandardIdentifier[T]](s"""
-insert into ${table}
-(
-  id,
-  name
-) values (?, ?)
-on conflict do nothing
-""")
-
-  val stationSql = idTemplate[Station]("stations")
-  val solarSystemSql = idTemplate[SolarSystem]("solarsystems")
-  val shipSql = idTemplate[Ship]("ships")
-
   def insert(owner: User, s: FleetState): ConnectionIO[Unit] = {
     for {
       _ <- User.charInsertSql.updateMany(s.members.map(_.character))
-      _ <- stationSql.updateMany(s.members.flatMap(_.station))
-      _ <- solarSystemSql.updateMany(s.members.map(_.solarSystem))
-      _ <- shipSql.updateMany(s.members.map(_.ship))
       id <- fleetInsertQuery(owner, s.fleet, s.now).withUniqueGeneratedKeys[Long]("serial_id")
       _ <- wingStatusSql.updateMany(s.wings.map(w => (id, w.wingId, w.name)))
       _ <- squadStatusSql.updateMany(s.wings.flatMap(w => w.squadsList.map(s => (id, w.wingId, s.squadId, s.name))))
@@ -131,16 +115,16 @@ select
   characters.id, characters.name,
   joinTime,
   roleID,
-  ships.id, ships.name,
-  solarsystems.id, solarsystems.name,
+  shipid, "invTypes"."typeName",
+  solarsystemid, "mapSolarSystems"."solarSystemName",
   squadID,
-  stations.id, stations.name,
+  stationId, "staStations"."stationName",
   takesFleetWarp,
   wingID
 from memberstatus
- join ships on ships.id = shipid
- join solarsystems on solarsystems.id = solarsystemid
- left join stations on stations.id = stationId
+ join "invTypes" on "invTypes"."typeID" = shipid
+ join "mapSolarSystems" on "mapSolarSystems"."solarSystemID" = solarsystemid
+ left join "staStations" on "staStations"."stationID" = stationId
  join characters on characters.id = characterId
 where
  parentstatus = ?

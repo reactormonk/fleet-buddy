@@ -30,6 +30,13 @@ npm install elm
 npm install elm-css
 ```
 
+# SQL Setup
+
+Download
+[The postgres dump](https://www.fuzzwork.co.uk/dump/postgres-latest.dmp.bz2),
+unzip it and place it in the root directory. Then run `sbt importStaticData`. To
+set up the rest of the DB via `flyway/flywayMigrate`.
+
 # Production install
 ```bash
 sbt debian:packageBin

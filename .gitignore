@@ -4,6 +4,7 @@ secrets.conf
 secrets.scala
 prototype.py
 application.conf
+postgres-latest.dmp
 
 # sbt specific
 .cache
