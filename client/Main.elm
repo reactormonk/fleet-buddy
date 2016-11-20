@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import FleetView
 import Html
-import Landing
+import EnterFleetUrl
 import Maybe
 import Navigation exposing (Location)
 import Result.Extra exposing (mapBoth)
@@ -35,7 +35,7 @@ type alias Model =
 
 
 type ViewModel
-    = LandingModel Landing.Model
+    = EnterFleetUrlModel EnterFleetUrl.Model
     | FleetViewModel FleetView.Model
     | NotFound
 
@@ -48,7 +48,7 @@ type alias Flags =
 
 init : Flags -> ( Model, Cmd Action )
 init flags =
-    ( { view = LandingModel Landing.init, host = flags.host, protocol = flags.protocol }, Cmd.none )
+    ( { view = EnterFleetUrlModel EnterFleetUrl.init, host = flags.host, protocol = flags.protocol }, Cmd.none )
 
 
 update : Action -> Model -> ( Model, Cmd Action )
@@ -56,23 +56,23 @@ update action model =
     let
         ( newModel, cmd ) =
             case model.view of
-                LandingModel landingM ->
+                EnterFleetUrlModel landingM ->
                     case action of
                         Switch ac ->
                             switch ac
 
                         FleetViewAction _ ->
-                            ( LandingModel landingM, Cmd.none )
+                            ( EnterFleetUrlModel landingM, Cmd.none )
 
-                        LandingAction ac ->
-                            case Landing.update ac landingM of
+                        EnterFleetUrlAction ac ->
+                            case EnterFleetUrl.update ac landingM of
                                 ( m, Just landingAction ) ->
                                     case landingAction of
-                                        Landing.SwitchToFleet id ->
+                                        EnterFleetUrl.SwitchToFleet id ->
                                             ( FleetViewModel (FleetView.init { id = id, host = model.host, protocol = model.protocol }), Cmd.none )
 
                                 ( m, Nothing ) ->
-                                    ( LandingModel m, Cmd.none )
+                                    ( EnterFleetUrlModel m, Cmd.none )
 
                 FleetViewModel model ->
                     case action of
@@ -82,7 +82,7 @@ update action model =
                         FleetViewAction ac ->
                             FleetView.update ac model |> mapEach FleetViewModel (Cmd.map FleetViewAction)
 
-                        LandingAction _ ->
+                        EnterFleetUrlAction _ ->
                             ( FleetViewModel model, Cmd.none )
 
                 NotFound ->
@@ -93,7 +93,7 @@ update action model =
                         FleetViewAction _ ->
                             model.view ! []
 
-                        LandingAction _ ->
+                        EnterFleetUrlAction _ ->
                             model.view ! []
     in
         ( { model | view = newModel }, cmd )
@@ -102,8 +102,8 @@ update action model =
 switch : SwitchAction -> ( ViewModel, Cmd Action )
 switch action =
     case action of
-        SwitchToLandingPage ->
-            LandingModel Landing.init ! []
+        SwitchToEnterFleetUrlPage ->
+            EnterFleetUrlModel EnterFleetUrl.init ! []
 
         SwitchToFleetPage init ->
             ( FleetViewModel <| FleetView.init init, Cmd.none )
@@ -113,7 +113,7 @@ switch action =
 
 
 type SwitchAction
-    = SwitchToLandingPage
+    = SwitchToEnterFleetUrlPage
     | SwitchToFleetPage FleetView.FleetInit
     | UrlNotFound
 
@@ -121,7 +121,7 @@ type SwitchAction
 type Action
     = Switch SwitchAction
     | FleetViewAction FleetView.Action
-    | LandingAction Landing.Action
+    | EnterFleetUrlAction EnterFleetUrl.Action
 
 
 location2messages : Location -> List Action
@@ -134,7 +134,7 @@ location2page location =
     parse identity
         (oneOf
             [ format (\id -> SwitchToFleetPage { id = id, host = location.host, protocol = location.protocol }) (s "fleet" </> string)
-            , format SwitchToLandingPage (s "")
+            , format SwitchToEnterFleetUrlPage (s "")
             ]
         )
     <|
@@ -150,12 +150,12 @@ delta2url previous current =
 delta2builder : ViewModel -> ViewModel -> Maybe Builder
 delta2builder previous current =
     case current of
-        LandingModel current ->
+        EnterFleetUrlModel current ->
             Just (builder |> newEntry)
 
         FleetViewModel current ->
             case previous of
-                LandingModel previous ->
+                EnterFleetUrlModel previous ->
                     Just (FleetView.urlBuilder current.id)
 
                 FleetViewModel previous ->
@@ -177,7 +177,7 @@ subscriptions model =
         FleetViewModel model ->
             Sub.map FleetViewAction <| FleetView.subscriptions model
 
-        LandingModel model ->
+        EnterFleetUrlModel model ->
             Sub.none
 
         NotFound ->
@@ -187,8 +187,8 @@ subscriptions model =
 view : Model -> Html.Html Action
 view model =
     case model.view of
-        LandingModel model ->
-            App.map LandingAction <| Landing.view model
+        EnterFleetUrlModel model ->
+            App.map EnterFleetUrlAction <| EnterFleetUrl.view model
 
         FleetViewModel model ->
             App.map FleetViewAction <| FleetView.view model

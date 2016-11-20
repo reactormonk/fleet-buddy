@@ -1,4 +1,4 @@
-module Landing exposing (..)
+module EnterFleetUrl exposing (..)
 
 import List
 import Html exposing (..)
