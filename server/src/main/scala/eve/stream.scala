@@ -9,17 +9,15 @@ import scalaz.stream.Cause.{Terminated, End}
 import java.util.concurrent.ScheduledExecutorService
 import eveapi.data.crest.GetLinkI
 
-import argonaut._, argonaut.Argonaut._, argonaut.ArgonautShapeless._
 import org.atnos.eff._, org.atnos.eff.syntax.eff._, org.atnos.eff.syntax.all._, org.atnos.eff.all._
 import org.http4s._, org.http4s.dsl._, org.http4s.client._, org.http4s.util.CaseInsensitiveString
 
 import stream._
-
 import effects._
 import eveapi.utils.TaskEffect._
 import shared._
+import utils.codecs._
 
-import eveapi.utils.Decoders._
 import eveapi._
 import eveapi.errors.{EveApiError, EveApiStatusFailed}
 import eveapi.oauth._
