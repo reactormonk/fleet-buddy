@@ -1,5 +1,6 @@
 package controllers
 
+import argonaut.Argonaut._
 import eveapi.errors.EveApiError
 import org.atnos.eff._, org.atnos.eff.syntax.all._, org.atnos.eff.all._
 import java.time.Clock
@@ -7,14 +8,14 @@ import knobs.{Required, FileResource, Config, CfgText, Configured}
 import scala.concurrent.duration.Duration
 import scalaz._, Scalaz._
 import scalaz.concurrent.Task
-import org.http4s._, org.http4s.dsl._, org.http4s.server._
+import org.http4s._, org.http4s.dsl._, org.http4s.server._, org.http4s.argonaut._
 import org.http4s.Uri.{ Authority, RegName }
 import org.http4s.client.Client
 import org.http4s.server.blaze._
 import doobie.imports._
 import org.log4s.getLogger
-import shared.FleetState
 import org.reactormonk.PrivateKey
+import java.time.Instant
 
 import utils._
 import oauth._
@@ -62,6 +63,7 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
 
   val topics = TopicHolder(pollInterval, oauth, eveserver)
   val dbs = DBHolder(xa)
+  val anon = User(0, "Anon", OAuth2Token("", "", 0, "", Instant.MIN))
 
   def static(file: String, request: Request) = {
     StaticFile.fromResource("/" + file, Some(request)).map(Task.now).getOrElse(NotFound())
@@ -81,6 +83,12 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
         }
       }, x => x))
       WebSocket(topic.subscribe)
+    }
+    case GET -> Root / "api" / "fleetstate" / LongVar(fleetId) / InstantVar(instant) => {
+      FleetHistory.loadNext(fleetId, user, instant).transact(xa).flatMap({
+        case Some(state) => Ok(state.asJson)
+        case None => NotFound()
+      })
     }
     case _ -> s if s.startsWith(Path("/api")) => NotFound()
     case GET -> _ => static("index.html", request)

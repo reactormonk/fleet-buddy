@@ -32,7 +32,7 @@ object FleetHistory {
 insert into fleetstate
   (id, isFreeMove, isRegistered, isVoiceEnabled, motd, recorded, owner)
 values
-  (${s.fleetId}, ${s.isFreeMove}, ${s.isRegistered}, ${s.isVoiceEnabled}, ${s.motd}, ${recorded}, ${owner.id})
+  (${s.fleetID}, ${s.isFreeMove}, ${s.isRegistered}, ${s.isVoiceEnabled}, ${s.motd}, ${recorded}, ${owner.id})
 """.update
   }
 
@@ -174,5 +174,9 @@ where
       } yield FleetState(fleet, members, wings, recorded)
       Process.eval(res)
     })
+  }
+
+  def loadNext(id: Long, owner: User, at: Instant): ConnectionIO[Option[FleetState]] = {
+    load(id, owner, at).take(1).runLast
   }
 }
