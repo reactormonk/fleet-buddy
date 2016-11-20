@@ -24,6 +24,7 @@ object FleetHistorySpec extends Specification {
   val fleetUri = Uri.uri("https://crest-tq.eveonline.com/fleets/1022511257640/")
   val wingsUri = Uri.uri("https://crest-tq.eveonline.com/fleets/1022511257640/wings/")
   val membersUri = Uri.uri("https://crest-tq.eveonline.com/fleets/1022511257640/members/")
+
   "Saving a state should not throw an error" >> {
     val state = ApiStream.fleetState(Uri.uri("https://crest-tq.eveonline.com/fleets/1022511257640/")).foldMap(Execute.localInterpreter({
       case `fleetUri` => fleet

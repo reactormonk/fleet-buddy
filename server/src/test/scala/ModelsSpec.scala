@@ -24,4 +24,7 @@ object UserSpec extends Specification with AnalysisSpec {
   check(FleetHistory.selectWings)
   check(FleetHistory.selectFleets)
   check(FleetHistory.fleetInsertQuery(user, CompressedFleet(0, false, false, false, ""), Instant.now))
+  check(StaticData.allShips)
+  check(StaticData.allSystems)
+  check(StaticData.allStations)
 }

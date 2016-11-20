@@ -23,11 +23,12 @@ import effects._
 import errors._
 import models._
 import eve._
+import utils.codecs._
 
 import eveapi.oauth._
 import eveapi.utils.TaskEffect._
 
-case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey: PrivateKey, pollInterval: Duration, xa: Transactor[Task], eveserver: EveServer) {
+case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey: PrivateKey, pollInterval: Duration, xa: Transactor[Task], eveserver: EveServer, gen: FleetGen) {
   val seed = new java.security.SecureRandom().nextLong
   val clock = Clock.systemUTC()
   val oauthState = OAuth2State(seed)
@@ -95,10 +96,17 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
     case _ => NotFound()
   }})
 
-  val favicon: PartialFunction[Request, Task[Response]] = { case request @ GET -> Root / "favicon.ico" => static("favicon.ico", request)}
-
   val service: HttpService = HttpService({
-    favicon.orElse(oauthservice).orElse(PartialFunction{ r: Request => {
+    ({
+      case request @ GET -> Root / "favicon.ico" => static("favicon.ico", request)
+      case GET -> Root / "api" / "fleetstate" / "random" => {
+        gen.state.sample match {
+          case Some(value) => Ok(value.asJson)
+          case None => NotFound()
+        }
+      }
+    }: PartialFunction[Request, Task[Response]])
+      .orElse(oauthservice).orElse(PartialFunction{ r: Request => {
       oauthauth.maybeAuth(r)
         .map(getUser).sequence.map(_.flatten)
         .flatMap({_ match {
@@ -142,6 +150,8 @@ object Loader extends ServerApp {
       callback = cfg.require[Uri]("eveonline.callback")
       pollInterval = cfg.require[Duration]("poll-interval")
       dbcfg = db(cfg)
+      xa = DriverManagerTransactor[Task](dbcfg.driver, dbcfg.url, dbcfg.user, dbcfg.password)
+      fleetGen <- FleetGen().transact(xa)
     } yield {
       val secret = PrivateKey(scala.io.Codec.toUTF8(key))
       FleetBuddy(
@@ -154,8 +164,9 @@ object Loader extends ServerApp {
           clientSecret,
           uri("https://login.eveonline.com/oauth/token"),
           Some("fleetRead fleetWrite")
-        ), host, port, secret, pollInterval, DriverManagerTransactor[Task](dbcfg.driver, dbcfg.url, dbcfg.user, dbcfg.password),
-        EveServer(Uri.RegName("crest-tq.eveonline.com")) // TODO parameterize this
+        ), host, port, secret, pollInterval, xa,
+        EveServer(Uri.RegName("crest-tq.eveonline.com")), // TODO parameterize this
+        fleetGen
       )
     }
   }
