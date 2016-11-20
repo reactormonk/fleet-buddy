@@ -32,7 +32,9 @@ lazy val server: Project = (project in file("server")).settings(
     , "org.reactormonk" %% "counter" % "1.3.3"
     , "org.typelevel" %% "shapeless-scalaz" % "0.4"
     , "org.flywaydb" % "flyway-core" % "4.0.1"
-    , "org.reactormonk" %% "cryptobits" % "1.0"
+    , "org.reactormonk" %% "cryptobits" % "1.1"
+    , "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.3"
+    , "org.specs2" %% "specs2-scalacheck" % "3.8.6"
   ) ++ Seq(
       "org.http4s" %% "http4s-core"
     , "org.http4s" %% "http4s-dsl"
@@ -45,10 +47,7 @@ lazy val server: Project = (project in file("server")).settings(
   ).map(_ % doobieVersion) ++ Seq(
       "eveapi" %% "blazeargonautapi"
     , "eveapi" %% "compress"
-  ).map(_ % eveapiVersion) ++ Seq(
-    "io.argonaut" %% "argonaut" % "6.1a",
-    "com.github.alexarchambault" %% "argonaut-shapeless_6.1" % "1.1.0-RC2"
-  )
+  ).map(_ % eveapiVersion)
 )
   .dependsOn(sharedJvm)
   .settings(globalSettings: _*)
