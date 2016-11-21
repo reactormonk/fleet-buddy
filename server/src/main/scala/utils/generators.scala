@@ -16,7 +16,7 @@ case class FleetGen(ships: List[CompressedShip], solarSystems: List[CompressedSo
   val genCharacter: Gen[CompressedCharacter] =
     for {
       id <- Gen.choose(90000001, 97999999)
-      name <- normalDist(30).flatMap({n => Gen.listOfN(n, Gen.alphaNumChar).map(_.mkString)})
+      name <- Gen.choose(3, 30).flatMap({n => Gen.listOfN(n, Gen.alphaNumChar).map(_.mkString)})
     } yield {
       CompressedStandardIdentifier(
         id = id.toLong,
@@ -47,11 +47,9 @@ case class FleetGen(ships: List[CompressedShip], solarSystems: List[CompressedSo
       )
     }
 
-  //... I hope
-  def normalDist(upper: Int) = Gen.oneOf(Range(0, upper).toList)
   // Not tailrecursive, but small enough not to hit the stack.
   def distribution(size: Int): Gen[List[Int]] =
-    normalDist(size).flatMap({ chop =>
+    Gen.choose(0, size).flatMap({ chop =>
       (size, chop) match {
         case (0, _) => List(chop)
         case (_, 0) => List(size)
@@ -62,7 +60,7 @@ case class FleetGen(ships: List[CompressedShip], solarSystems: List[CompressedSo
   // TODO generate station too
   val memberList: Gen[List[CompressedMember]] = {
     for {
-      fleetSize <- normalDist(250)
+      fleetSize <- Gen.choose(1, 250)
       shipDist <- distribution(fleetSize)
       availableShips <- Gen.containerOfN[Vector, CompressedShip](shipDist.length, Arbitrary.arbitrary[CompressedShip])
       shipList = shipDist.zip(availableShips).flatMap({case (n, ship) => List.fill(n)(ship)})
