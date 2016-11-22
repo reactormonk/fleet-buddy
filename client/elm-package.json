@@ -18,7 +18,6 @@
         "elm-lang/websocket": "1.0.0 <= v < 2.0.0",
         "evancz/url-parser": "1.0.0 <= v < 2.0.0",
         "justinmimbs/elm-date-extra": "2.0.0 <= v < 3.0.0",
-        "lukewestby/elm-template": "1.0.0 <= v < 2.0.0",
         "rgrempel/elm-route-url": "2.0.0 <= v < 3.0.0",
         "rtfeldman/elm-css": "4.0.2 <= v < 5.0.0",
         "rtfeldman/elm-css-helpers": "2.0.0 <= v < 3.0.0"

@@ -7,7 +7,6 @@ import Dict exposing (Dict)
 import Dict.Extra exposing (groupBy)
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Template exposing (template, render, withValue, withString)
 import WebSocket
 import Json.Decode exposing (decodeString)
 import Json.Encode exposing (encode)
@@ -46,6 +45,8 @@ type Action
 
 { id, class, classList } =
     Html.CssHelpers.withNamespace ""
+
+
 init : FleetInit -> Model
 init struct =
     { id = struct.id, data = Nothing, socket = fleetSocket struct, running = True }
@@ -101,34 +102,25 @@ list elem =
     [ elem ]
 
 
-shipImageTemplate : Template.Template { b | id : String }
-shipImageTemplate =
-    template "https://image.eveonline.com/"
-        |> withString "Render/"
-        |> withValue .id
-        |> withString "_512.png"
+shipImage : String -> String
+shipImage id =
+    "https://image.eveonline.com/Render/" ++ id ++ "_512.png"
 
 
-characterImageTemplate : Template.Template { b | id : String }
-characterImageTemplate =
-    template "https://image.eveonline.com/"
-        |> withString "Character/"
-        |> withValue .id
-        |> withString "_512.jpg"
+characterImage : String -> String
+characterImage id =
+    "https://image.eveonline.com/Character/" ++ id ++ "_512.jpg"
 
 
-shipTextTemplate : Template.Template { b | count : String, name : String }
-shipTextTemplate =
-    template ""
-        |> withValue .count
-        |> withString "x "
-        |> withValue .name
+shipText : { b | count : String, name : String } -> String
+shipText ship =
+    ship.count ++ "x " ++ ship.name
 
 
 renderCharacterInList : { a | id : String, name : String, location : CompressedLocation } -> Html Action
 renderCharacterInList character =
     div [ class [ "item" ] ]
-        [ img [ class [ "ui", "image", "mini" ], src (render characterImageTemplate character) ] []
+        [ img [ class [ "ui", "image", "mini" ], src (characterImage character.id) ] []
         , div [ class [ "content" ] ]
             [ div [ class [ "ui", "sub", "header" ] ]
                 [ text character.name ]
@@ -145,11 +137,11 @@ renderCharacterList list =
 renderShipListShip : ( { a | id : String, name : String }, Int, List { b | id : String, name : String, location : CompressedLocation } ) -> Html Action
 renderShipListShip ( ship, count, members ) =
     div [ class [ "item" ] ]
-        [ div [ class [ "image" ] ] [ img [ src (render shipImageTemplate ship), class [ "ui", "image", "small" ] ] [] ]
+        [ div [ class [ "image" ] ] [ img [ src (shipImage ship.id), class [ "ui", "image", "small" ] ] [] ]
         , div [ class [ "content" ] ]
             [ div
                 [ class [ "header" ] ]
-                [ text (render shipTextTemplate { name = ship.name, count = toString count }) ]
+                [ text (shipText { name = ship.name, count = toString count }) ]
             , renderCharacterList members
             ]
         ]
@@ -164,7 +156,7 @@ renderEvent' : Maybe { a | id : String, name : String } -> List (Html Action) ->
 renderEvent' character summary =
     case character of
         Just char ->
-            [ div [ class [ "label" ] ] [ img [ src (render characterImageTemplate char) ] [] ]
+            [ div [ class [ "label" ] ] [ img [ src (characterImage char.id) ] [] ]
             , div [ class [ "content" ] ] [ div [ class [ "summary" ] ] <| [ text char.name ] ++ summary ]
             ]
 
