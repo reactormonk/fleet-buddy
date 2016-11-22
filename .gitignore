@@ -28,3 +28,4 @@ elm-stuff
 node_modules
 client/elm.js
 client/styles.css
+client/Codec.elm
