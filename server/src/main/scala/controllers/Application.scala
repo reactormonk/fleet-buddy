@@ -71,8 +71,6 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
   }
 
   val authed: Kleisli[Task, (User, Request), Response] = Kleisli({ case (user, request) => request match {
-    case GET -> Root / path if List(".js", ".css", ".map", ".html", ".webm").exists(path.endsWith) =>
-      static(path, request)
     case GET -> Root / "api" / "fleet-ws" / LongVar(fleetId) => {
       val topic = topics(user, fleetId)
       val toDB = dbs(user, topic.subscribe.collect({case \/-(s) => s}))
@@ -105,6 +103,9 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
           case None => NotFound()
         }
       }
+      case request @ GET -> Root / path if List(".js", ".css", ".map", ".html", ".webm").exists(path.endsWith) =>
+        static(path, request)
+      case request @ _ -> s if ! s.startsWith(Path("/api")) => static("index.html", request)
     }: PartialFunction[Request, Task[Response]])
       .orElse(oauthservice).orElse(PartialFunction{ r: Request => {
       oauthauth.maybeAuth(r)

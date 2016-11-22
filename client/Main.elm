@@ -13,6 +13,7 @@ import UrlParser exposing (..)
 import Tuple2 exposing (mapEach, mapFst, mapSnd)
 import Html.App as App
 import String
+import SampleFleetView
 
 
 main : Program Flags
@@ -37,6 +38,7 @@ type alias Model =
 type ViewModel
     = EnterFleetUrlModel EnterFleetUrl.Model
     | FleetViewModel FleetView.Model
+    | SampleFleetViewModel SampleFleetView.Model
     | NotFound
 
 
@@ -61,9 +63,6 @@ update action model =
                         Switch ac ->
                             switch ac
 
-                        FleetViewAction _ ->
-                            ( EnterFleetUrlModel landingM, Cmd.none )
-
                         EnterFleetUrlAction ac ->
                             case EnterFleetUrl.update ac landingM of
                                 ( m, Just landingAction ) ->
@@ -74,6 +73,9 @@ update action model =
                                 ( m, Nothing ) ->
                                     ( EnterFleetUrlModel m, Cmd.none )
 
+                        _ ->
+                            ( EnterFleetUrlModel landingM, Cmd.none )
+
                 FleetViewModel model ->
                     case action of
                         Switch ac ->
@@ -82,18 +84,26 @@ update action model =
                         FleetViewAction ac ->
                             FleetView.update ac model |> mapEach FleetViewModel (Cmd.map FleetViewAction)
 
-                        EnterFleetUrlAction _ ->
+                        _ ->
                             ( FleetViewModel model, Cmd.none )
+
+                SampleFleetViewModel model ->
+                    case action of
+                        Switch ac ->
+                            switch ac
+
+                        SampleFleetViewAction ac ->
+                            SampleFleetView.update ac model |> mapEach SampleFleetViewModel (Cmd.map SampleFleetViewAction)
+
+                        _ ->
+                            ( SampleFleetViewModel model, Cmd.none )
 
                 NotFound ->
                     case action of
                         Switch ac ->
                             switch ac
 
-                        FleetViewAction _ ->
-                            model.view ! []
-
-                        EnterFleetUrlAction _ ->
+                        _ ->
                             model.view ! []
     in
         ( { model | view = newModel }, cmd )
@@ -108,6 +118,9 @@ switch action =
         SwitchToFleetPage init ->
             ( FleetViewModel <| FleetView.init init, Cmd.none )
 
+        SwitchToSampleFleetView ->
+            mapEach SampleFleetViewModel (Cmd.map SampleFleetViewAction) SampleFleetView.init
+
         UrlNotFound ->
             ( NotFound, Cmd.none )
 
@@ -115,12 +128,18 @@ switch action =
 type SwitchAction
     = SwitchToEnterFleetUrlPage
     | SwitchToFleetPage FleetView.FleetInit
+    | SwitchToSampleFleetView
     | UrlNotFound
+
+
+
+-- TODO separate layer For Switch
 
 
 type Action
     = Switch SwitchAction
     | FleetViewAction FleetView.Action
+    | SampleFleetViewAction SampleFleetView.Action
     | EnterFleetUrlAction EnterFleetUrl.Action
 
 
@@ -134,6 +153,7 @@ location2page location =
     parse identity
         (oneOf
             [ format (\id -> SwitchToFleetPage { id = id, host = location.host, protocol = location.protocol }) (s "fleet" </> string)
+            , format SwitchToSampleFleetView (s "sample")
             , format SwitchToEnterFleetUrlPage (s "")
             ]
         )
@@ -155,17 +175,17 @@ delta2builder previous current =
 
         FleetViewModel current ->
             case previous of
-                EnterFleetUrlModel previous ->
-                    Just (FleetView.urlBuilder current.id)
-
                 FleetViewModel previous ->
                     if not (previous.id == current.id) then
                         Just (FleetView.urlBuilder current.id)
                     else
                         Nothing
 
-                NotFound ->
+                _ ->
                     Just (FleetView.urlBuilder current.id)
+
+        SampleFleetViewModel current ->
+            Just (builder |> newEntry |> appendToPath [ "sample" ])
 
         NotFound ->
             Nothing
@@ -177,10 +197,7 @@ subscriptions model =
         FleetViewModel model ->
             Sub.map FleetViewAction <| FleetView.subscriptions model
 
-        EnterFleetUrlModel model ->
-            Sub.none
-
-        NotFound ->
+        _ ->
             Sub.none
 
 
@@ -192,6 +209,9 @@ view model =
 
         FleetViewModel model ->
             App.map FleetViewAction <| FleetView.view model
+
+        SampleFleetViewModel model ->
+            App.map SampleFleetViewAction <| SampleFleetView.view model
 
         NotFound ->
             Html.text "404"

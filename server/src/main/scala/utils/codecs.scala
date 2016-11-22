@@ -6,8 +6,22 @@ import shapeless._
 import eveapi.utils.Decoders._
 import eveapi.data.crest._
 import org.http4s.Uri
+import scalaz._, Scalaz._
 
 object codecs {
+  // javascript numbers are max. 53 bit, Longs are longer.
+  implicit val longToString: CodecJson[Long] = CodecJson(
+    (l: Long) => Json.jString(l.toString),
+    c => c.as[String].flatMap(str =>
+      \/.fromTryCatchNonFatal(str.toLong).fold(err => err match {
+        case e: NumberFormatException => DecodeResult.fail(e.toString, c.history)
+        case e => throw e
+      },
+        DecodeResult.ok
+      )
+    )
+  )
+
   implicit val fse = implicitly[EncodeJson[FleetState]]
   implicit val fsd = implicitly[DecodeJson[FleetState]]
   implicit val fd = implicitly[DecodeJson[Fleet[Uri]]]

@@ -109,7 +109,7 @@ shipImage id =
 
 characterImage : String -> String
 characterImage id =
-    "https://image.eveonline.com/Character/" ++ id ++ "_512.jpg"
+    "https://image.eveonline.com/Character/" ++ id ++ "_64.jpg"
 
 
 shipText : { b | count : String, name : String } -> String
@@ -280,42 +280,47 @@ renderEvent event =
         div [ class [ "event" ] ] inner
 
 
+fleetView : FleetModel -> Html Action
+fleetView data =
+    let
+        countedShips =
+            data.state.members
+                |> List.map (\m -> ( m.ship.id, m.ship.name ))
+                |> count
+                |> Dict.toList
+                |> List.sortBy snd
+                |> List.reverse
+
+        membersByShip =
+            data.state.members
+                |> List.map (\m -> { name = m.character.name, id = m.character.id, location = (extractLocation m), shipId = m.ship.id })
+                |> Dict.Extra.groupBy .shipId
+
+        ships =
+            List.map (\( ( id, name ), count ) -> ( { id = id, name = name }, count, Maybe.withDefault [] <| Dict.get id membersByShip )) countedShips
+    in
+        div [ id FleetViewContainer ]
+            [ div [ class [ "ui", "two", "column", "grid" ] ]
+                [ div [ class [ "eleven", "wide", "column" ], id FleetShipOverview ]
+                    [ h1 [ class [ "ui", "dividing", "header" ] ] [ text "Ships" ]
+                    , renderShipList ships
+                    ]
+                , div [ class [ "five", "wide", "column" ], id FleetFeed ]
+                    [ h1 [ class [ "ui", "dividing", "header" ] ] [ text "Feed" ]
+                    , div [ class [ "ui", "feed" ] ] <|
+                        List.map renderEvent data.events
+                    ]
+                ]
+            ]
+
+
 view : Model -> Html Action
 view model =
     case model.running of
         True ->
             case model.data of
                 Just data ->
-                    let
-                        countedShips =
-                            data.state.members
-                                |> List.map (\m -> ( m.ship.id, m.ship.name ))
-                                |> count
-                                |> Dict.toList
-                                |> List.sortBy snd
-                                |> List.reverse
-
-                        membersByShip =
-                            data.state.members
-                                |> List.map (\m -> { name = m.character.name, id = m.character.id, location = (extractLocation m), shipId = m.ship.id })
-                                |> Dict.Extra.groupBy .shipId
-
-                        ships =
-                            List.map (\( ( id, name ), count ) -> ( { id = id, name = name }, count, Maybe.withDefault [] <| Dict.get id membersByShip )) countedShips
-                    in
-                        div [ id FleetViewContainer ]
-                            [ div [ class [ "ui", "two", "column", "grid" ] ]
-                                [ div [ class [ "eleven", "wide", "column" ], id FleetShipOverview ]
-                                    [ h1 [ class [ "ui", "dividing", "header" ] ] [ text "Ships" ]
-                                    , renderShipList ships
-                                    ]
-                                , div [ class [ "five", "wide", "column" ], id FleetFeed ]
-                                    [ h1 [ class [ "ui", "dividing", "header" ] ] [ text "Feed" ]
-                                    , div [ class [ "ui", "feed" ] ] <|
-                                        List.map renderEvent data.events
-                                    ]
-                                ]
-                            ]
+                    fleetView data
 
                 Nothing ->
                     div []

@@ -18,19 +18,6 @@ import eveapi.errors.EveApiError
 import eveapi.utils.Decoders._
 
 object WebSocket {
-  // javascript numbers are max. 53 bit, Longs are longer.
-  implicit val longToString: CodecJson[Long] = CodecJson(
-    (l: Long) => Json.jString(l.toString),
-    c => c.as[String].flatMap(str =>
-      \/.fromTryCatchNonFatal(str.toLong).fold(err => err match {
-        case e: NumberFormatException => DecodeResult.fail(e.toString, c.history)
-        case e => throw e
-      },
-        DecodeResult.ok
-      )
-    )
-  )
-
   def apply(process: Process[Task, EveApiError \/ FleetState]): Task[Response] = {
     val serverToClient: Process[Task, ServerToClient] = process.pipe(ApiStream.toClient.liftR[EveApiError]).map(_.fold(err => throw err, x => x))
     val websocketProtocol: Process[Task, Text] = serverToClient.map(m => Text(m.asJson.nospaces))
