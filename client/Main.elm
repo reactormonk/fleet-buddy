@@ -54,57 +54,54 @@ init flags =
 
 
 update : Action -> Model -> ( Model, Cmd Action )
-update action model =
+update baseAction model =
     let
         ( newModel, cmd ) =
-            case model.view of
-                EnterFleetUrlModel landingM ->
-                    case action of
-                        Switch ac ->
-                            switch ac
+            case baseAction of
+                Switch ac ->
+                    switch ac
 
-                        EnterFleetUrlAction ac ->
-                            case EnterFleetUrl.update ac landingM of
-                                ( m, Just landingAction ) ->
-                                    case landingAction of
-                                        EnterFleetUrl.SwitchToFleet id ->
-                                            ( FleetViewModel (FleetView.init { id = id, host = model.host, protocol = model.protocol }), Cmd.none )
+                VAction action ->
+                    let
+                        res =
+                            case model.view of
+                                EnterFleetUrlModel landingM ->
+                                    case action of
+                                        EnterFleetUrlAction ac ->
+                                            case EnterFleetUrl.update ac landingM of
+                                                ( m, Just landingAction ) ->
+                                                    case landingAction of
+                                                        EnterFleetUrl.SwitchToFleet id ->
+                                                            ( FleetViewModel (FleetView.init { id = id, host = model.host, protocol = model.protocol }), Cmd.none )
 
-                                ( m, Nothing ) ->
-                                    ( EnterFleetUrlModel m, Cmd.none )
+                                                ( m, Nothing ) ->
+                                                    ( EnterFleetUrlModel m, Cmd.none )
 
-                        _ ->
-                            ( EnterFleetUrlModel landingM, Cmd.none )
+                                        _ ->
+                                            ( EnterFleetUrlModel landingM, Cmd.none )
 
-                FleetViewModel model ->
-                    case action of
-                        Switch ac ->
-                            switch ac
+                                FleetViewModel model ->
+                                    case action of
+                                        FleetViewAction ac ->
+                                            FleetView.update ac model |> mapEach FleetViewModel (Cmd.map FleetViewAction)
 
-                        FleetViewAction ac ->
-                            FleetView.update ac model |> mapEach FleetViewModel (Cmd.map FleetViewAction)
+                                        _ ->
+                                            ( FleetViewModel model, Cmd.none )
 
-                        _ ->
-                            ( FleetViewModel model, Cmd.none )
+                                SampleFleetViewModel model ->
+                                    case action of
+                                        SampleFleetViewAction ac ->
+                                            SampleFleetView.update ac model |> mapEach SampleFleetViewModel (Cmd.map SampleFleetViewAction)
 
-                SampleFleetViewModel model ->
-                    case action of
-                        Switch ac ->
-                            switch ac
+                                        _ ->
+                                            ( SampleFleetViewModel model, Cmd.none )
 
-                        SampleFleetViewAction ac ->
-                            SampleFleetView.update ac model |> mapEach SampleFleetViewModel (Cmd.map SampleFleetViewAction)
-
-                        _ ->
-                            ( SampleFleetViewModel model, Cmd.none )
-
-                NotFound ->
-                    case action of
-                        Switch ac ->
-                            switch ac
-
-                        _ ->
-                            model.view ! []
+                                NotFound ->
+                                    case action of
+                                        _ ->
+                                            model.view ! []
+                    in
+                        mapSnd (Cmd.map VAction) res
     in
         ( { model | view = newModel }, cmd )
 
@@ -119,7 +116,7 @@ switch action =
             ( FleetViewModel <| FleetView.init init, Cmd.none )
 
         SwitchToSampleFleetView ->
-            mapEach SampleFleetViewModel (Cmd.map SampleFleetViewAction) SampleFleetView.init
+            mapEach SampleFleetViewModel (Cmd.map (\msg -> VAction <| SampleFleetViewAction msg)) SampleFleetView.init
 
         UrlNotFound ->
             ( NotFound, Cmd.none )
@@ -132,13 +129,13 @@ type SwitchAction
     | UrlNotFound
 
 
-
--- TODO separate layer For Switch
-
-
 type Action
     = Switch SwitchAction
-    | FleetViewAction FleetView.Action
+    | VAction ViewAction
+
+
+type ViewAction
+    = FleetViewAction FleetView.Action
     | SampleFleetViewAction SampleFleetView.Action
     | EnterFleetUrlAction EnterFleetUrl.Action
 
@@ -195,7 +192,7 @@ subscriptions : Model -> Sub Action
 subscriptions model =
     case model.view of
         FleetViewModel model ->
-            Sub.map FleetViewAction <| FleetView.subscriptions model
+            Sub.map (\msg -> VAction <| FleetViewAction msg) <| FleetView.subscriptions model
 
         _ ->
             Sub.none
@@ -205,13 +202,13 @@ view : Model -> Html.Html Action
 view model =
     case model.view of
         EnterFleetUrlModel model ->
-            App.map EnterFleetUrlAction <| EnterFleetUrl.view model
+            App.map (\msg -> VAction <| EnterFleetUrlAction msg) <| EnterFleetUrl.view model
 
         FleetViewModel model ->
-            App.map FleetViewAction <| FleetView.view model
+            App.map (\msg -> VAction <| FleetViewAction msg) <| FleetView.view model
 
         SampleFleetViewModel model ->
-            App.map SampleFleetViewAction <| SampleFleetView.view model
+            App.map (\msg -> VAction <| SampleFleetViewAction msg) <| SampleFleetView.view model
 
         NotFound ->
             Html.text "404"
