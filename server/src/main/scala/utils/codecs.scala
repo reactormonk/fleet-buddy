@@ -22,14 +22,14 @@ object codecs {
     )
   )
 
-  implicit val fse = implicitly[EncodeJson[FleetState]]
-  implicit val fsd = implicitly[DecodeJson[FleetState]]
-  implicit val fd = implicitly[DecodeJson[Fleet[Uri]]]
-  implicit val fe = implicitly[EncodeJson[Fleet[Uri]]]
-  implicit val pme = implicitly[EncodeJson[Paginated[Member[Uri]]]]
-  implicit val pmd = implicitly[DecodeJson[Paginated[Member[Uri]]]]
-  implicit val pwe = implicitly[EncodeJson[Paginated[Wing[Uri]]]]
-  implicit val pwd = implicitly[DecodeJson[Paginated[Wing[Uri]]]]
-  implicit val fue = implicitly[DecodeJson[FleetUpdates]]
-  implicit val fud = implicitly[EncodeJson[FleetUpdates]]
+  implicit val fse: EncodeJson[FleetState] = cachedImplicit
+  implicit val fsd: DecodeJson[FleetState] = cachedImplicit
+  implicit val fd: DecodeJson[Fleet[Uri]] = cachedImplicit
+  implicit val fe: EncodeJson[Fleet[Uri]] = cachedImplicit
+  implicit val pme: EncodeJson[Paginated[Member[Uri]]] = cachedImplicit
+  implicit val pmd: DecodeJson[Paginated[Member[Uri]]] = cachedImplicit
+  implicit val pwe: EncodeJson[Paginated[Wing[Uri]]] = cachedImplicit
+  implicit val pwd: DecodeJson[Paginated[Wing[Uri]]] = cachedImplicit
+  implicit val fue: DecodeJson[FleetUpdates] = cachedImplicit
+  implicit val fud: EncodeJson[FleetUpdates] = cachedImplicit
 }
