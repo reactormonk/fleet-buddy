@@ -103,6 +103,11 @@ case class FleetBuddy(settings: OAuth2Settings, host: String, port: Int, appKey:
           case None => NotFound()
         }
       }
+      case GET -> Root / "sample" => {
+        Option(getClass.getResource("/client/sample.html")).map({res =>
+          Ok(io.Source.fromURL(res).mkString.replace("{{sample}}", gen.state.sample.asJson.nospaces))
+        }).getOrElse(NotFound())
+      }
       case request @ GET -> Root / path if List(".js", ".css", ".map", ".html", ".webm").exists(path.endsWith) =>
         static(path, request)
       case request @ _ -> s if ! s.startsWith(Path("/api")) => static("index.html", request)

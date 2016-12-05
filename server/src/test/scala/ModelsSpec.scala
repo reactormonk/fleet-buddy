@@ -11,7 +11,7 @@ import oauth._
 import eveapi.compress.CompressedFleet
 
 object UserSpec extends Specification with AnalysisSpec {
-  val transactor = DriverManagerTransactor[Task](buildInfo.BuildInfo.flywayDriver, buildInfo.BuildInfo.flywayUrl + "test", buildInfo.BuildInfo.flywayUser, buildInfo.BuildInfo.flywayPassword)
+  val transactor = God.xa
   val user = User(1234, "foo", OAuth2Token("AT", "TT", 3600, "RT"))
   check(User.upsertQuery(user))
   check(User.selectQuery(2L))

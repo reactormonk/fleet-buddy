@@ -14,6 +14,8 @@ import Tuple2 exposing (mapEach, mapFst, mapSnd)
 import Html.App as App
 import String
 import SampleFleetView
+import Codec
+import Json.Decode
 
 
 main : Program Flags
@@ -45,12 +47,30 @@ type ViewModel
 type alias Flags =
     { host : String
     , protocol : String
+    , sample : Maybe String
     }
 
 
 init : Flags -> ( Model, Cmd Action )
 init flags =
-    ( { view = EnterFleetUrlModel EnterFleetUrl.init, host = flags.host, protocol = flags.protocol }, Cmd.none )
+    ( { view =
+            case flags.sample of
+                Just string ->
+                    SampleFleetViewModel <|
+                        case Json.Decode.decodeString Codec.decodeFleetUpdates string of
+                            Ok model ->
+                                SampleFleetView.ActualModel model
+
+                            Err error ->
+                                SampleFleetView.Error error
+
+                Nothing ->
+                    EnterFleetUrlModel EnterFleetUrl.init
+      , host = flags.host
+      , protocol = flags.protocol
+      }
+    , Cmd.none
+    )
 
 
 update : Action -> Model -> ( Model, Cmd Action )
@@ -116,7 +136,7 @@ switch action =
             ( FleetViewModel <| FleetView.init init, Cmd.none )
 
         SwitchToSampleFleetView ->
-            mapEach SampleFleetViewModel (Cmd.map (\msg -> VAction <| SampleFleetViewAction msg)) SampleFleetView.init
+            mapEach SampleFleetViewModel (Cmd.map <| SampleFleetViewAction >> VAction) SampleFleetView.init
 
         UrlNotFound ->
             ( NotFound, Cmd.none )
@@ -192,7 +212,7 @@ subscriptions : Model -> Sub Action
 subscriptions model =
     case model.view of
         FleetViewModel model ->
-            Sub.map (\msg -> VAction <| FleetViewAction msg) <| FleetView.subscriptions model
+            Sub.map (FleetViewAction >> VAction) <| FleetView.subscriptions model
 
         _ ->
             Sub.none
@@ -202,13 +222,13 @@ view : Model -> Html.Html Action
 view model =
     case model.view of
         EnterFleetUrlModel model ->
-            App.map (\msg -> VAction <| EnterFleetUrlAction msg) <| EnterFleetUrl.view model
+            App.map (EnterFleetUrlAction >> VAction) <| EnterFleetUrl.view model
 
         FleetViewModel model ->
-            App.map (\msg -> VAction <| FleetViewAction msg) <| FleetView.view model
+            App.map (FleetViewAction >> VAction) <| FleetView.view model
 
         SampleFleetViewModel model ->
-            App.map (\msg -> VAction <| SampleFleetViewAction msg) <| SampleFleetView.view model
+            App.map (SampleFleetViewAction >> VAction) <| SampleFleetView.view model
 
         NotFound ->
             Html.text "404"

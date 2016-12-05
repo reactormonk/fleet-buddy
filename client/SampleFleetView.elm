@@ -22,7 +22,7 @@ type Action
 
 init : ( Model, Cmd Action )
 init =
-    Empty ! [ Http.get Codec.decodeFleetState "/api/fleetstate/random" |> perform (\error -> HttpError error) (\msg -> SampleData <| FleetView.FleetModel msg []) ]
+    Empty ! [ Http.get Codec.decodeFleetUpdates "/api/fleetstate/random" |> perform (\error -> HttpError error) (\msg -> SampleData <| FleetView.FleetModel msg.state msg.events) ]
 
 
 update : Action -> Model -> ( Model, Cmd Action )

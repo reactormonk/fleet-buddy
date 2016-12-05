@@ -19,6 +19,7 @@ val doobieVersion = "0.3.0"
 scalaVersion in ThisBuild := scalaV
 
 lazy val server: Project = (project in file("server")).settings(
+  fork := true,
   scalaVersion := scalaV,
   pipelineStages := Seq(gzip),
   resolvers += "scalaz-bintray" at "https://dl.bintray.com/scalaz/releases",
@@ -58,6 +59,7 @@ lazy val server: Project = (project in file("server")).settings(
     , file("client/semantic/dist/semantic.min.css")
     , file("client/semantic/dist/semantic.min.js")
     , file("client/index.html")
+    , file("client/sample.html")
     )
   , (unmanagedResourceDirectories in Compile) += file("client/resources")
 )

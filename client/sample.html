@@ -1,0 +1,22 @@
+<!DOCTYPE HTML>
+<html>
+  <head><meta charset="UTF-8"><title>Landing</title>
+    <link rel="stylesheet" type="text/css" href="/semantic.min.css">
+    <link rel="stylesheet" type="text/css" href="/styles.css">
+    <script src="https://code.jquery.com/jquery-3.1.0.slim.min.js" integrity="sha256-cRpWjoSOw5KcyIOaZNo4i6fZ9tKPhYYb6i5T9RSVJG8=" crossorigin="anonymous"></script>
+    <script src="/semantic.min.js"></script>
+    <script src="/elm.js"></script>
+    <script id="sample-data" type="application/json">
+      {{sample}}
+    </script>
+    <body>
+      <script>
+       var app = Elm.Main.fullscreen({
+         host: document.location.host,
+         protocol: document.location.protocol,
+         sample: document.getElementById("sample-data").innerHTML
+       });
+      </script>
+    </body>
+  </head>
+</html>

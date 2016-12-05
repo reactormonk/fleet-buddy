@@ -30,4 +30,6 @@ object codecs {
   implicit val pmd = implicitly[DecodeJson[Paginated[Member[Uri]]]]
   implicit val pwe = implicitly[EncodeJson[Paginated[Wing[Uri]]]]
   implicit val pwd = implicitly[DecodeJson[Paginated[Wing[Uri]]]]
+  implicit val fue = implicitly[DecodeJson[FleetUpdates]]
+  implicit val fud = implicitly[EncodeJson[FleetUpdates]]
 }

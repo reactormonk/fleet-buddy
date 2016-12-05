@@ -7,7 +7,7 @@ import eveapi.compress._
 import scala.collection.JavaConverters._
 import models.StaticData._
 import doobie.imports._
-import shared.FleetState
+import shared.{FleetState, FleetUpdates}
 
 case class FleetGen(ships: List[CompressedShip], solarSystems: List[CompressedSolarSystem]) {
   implicit val arbShip = Arbitrary(Gen.oneOf(ships))
@@ -78,12 +78,12 @@ case class FleetGen(ships: List[CompressedShip], solarSystems: List[CompressedSo
   // TODO squad/wings
   val wingList: Gen[List[CompressedWing]] = Gen.const(List())
 
-  def state: Gen[FleetState] = {
+  def state: Gen[FleetUpdates] = {
     for {
       wings <- wingList
       members <- memberList
     } yield {
-      FleetState(CompressedFleet(0, false, false, false, "Sample motd."), members, wings, Instant.now)
+      FleetUpdates(FleetState(CompressedFleet(0, false, false, false, "Sample motd."), members, wings, Instant.now), List())
     }
   }
 
