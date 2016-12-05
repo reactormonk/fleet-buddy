@@ -8,7 +8,6 @@ lazy val globalSettings = Seq(
   , resolvers ++= Seq(
       Resolver.sonatypeRepo("releases")
     , Resolver.sonatypeRepo("snapshots")
-    , Resolver.bintrayRepo("oncue", "releases")
   )
 )
 
@@ -24,7 +23,7 @@ lazy val server: Project = (project in file("server")).settings(
   pipelineStages := Seq(gzip),
   resolvers += "scalaz-bintray" at "https://dl.bintray.com/scalaz/releases",
   libraryDependencies ++= Seq(
-      "oncue.knobs" %% "core" % "3.6.0a"
+      "io.verizon.knobs" %% "core" % "3.11.26a"
     , "org.scalaz" %% "scalaz-core" % "7.2.2"
     , "org.scalaz" %% "scalaz-concurrent" % "7.2.2"
     , "commons-codec" % "commons-codec" % "1.10"
